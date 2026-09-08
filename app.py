@@ -152,7 +152,23 @@ st.bar_chart(df["Severity"].value_counts().sort_index())
 st.subheader("Location-wise Reports")
 st.bar_chart(df["Location"].value_counts())
 
+st.subheader("Problem Patterns")
+
+patterns = (
+    df.groupby(["Problem", "Location"])
+    .size()
+    .reset_index(name="Reports")
+    .sort_values("Reports", ascending=False)
+)
+
+st.dataframe(
+    patterns,
+    use_container_width=True,
+    hide_index=True
+)
+
 top_problem = analysis.iloc[0]["Problem"]
+
 top_location = df[
     df["Problem"] == top_problem
 ]["Location"].value_counts().idxmax()
