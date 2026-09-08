@@ -167,6 +167,18 @@ st.dataframe(
     hide_index=True
 )
 
+st.subheader("Time Analysis")
+
+time_count = df["Time"].value_counts()
+
+st.bar_chart(time_count)
+
+peak_time = time_count.idxmax()
+
+st.info(
+    f"Most reports are being received around {peak_time}."
+)
+
 top_problem = analysis.iloc[0]["Problem"]
 
 top_location = df[
@@ -232,6 +244,22 @@ with p2:
         ]
     )
 
+time = st.selectbox(
+    "Time",
+    [
+        "8:00 AM",
+        "9:00 AM",
+        "10:00 AM",
+        "11:00 AM",
+        "12:00 PM",
+        "1:00 PM",
+        "2:00 PM",
+        "3:00 PM",
+        "4:00 PM",
+        "5:00 PM"
+    ]
+)
+
 severity = st.slider("Severity", 1, 5, 3)
 
 description = st.text_area("Describe the problem")
@@ -243,7 +271,7 @@ if st.button("Submit Report"):
         new_report = pd.DataFrame([{
             "Problem": problem,
             "Location": location,
-            "Time": "Not specified",
+            "Time": time,
             "Severity": severity,
             "Description": description
         }])
