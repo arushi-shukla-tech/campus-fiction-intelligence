@@ -44,8 +44,8 @@ if "reports" not in st.session_state:
 
 df = st.session_state.reports
 
-st.title("Campus Friction Intelligence")
-st.caption("Finding recurring problems in college using student reports")
+st.title("Campus Problem Analysis")
+st.caption("Analysis of common college problems using student reports")
 
 st.divider()
 
@@ -153,7 +153,9 @@ st.subheader("Location-wise Reports")
 st.bar_chart(df["Location"].value_counts())
 
 top_problem = analysis.iloc[0]["Problem"]
-top_location = df[df["Problem"] == top_problem]["Location"].value_counts().idxmax()
+top_location = df[
+    df["Problem"] == top_problem
+]["Location"].value_counts().idxmax()
 
 st.subheader("Smart Insight")
 
