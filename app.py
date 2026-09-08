@@ -3,6 +3,7 @@ import pandas as pd
 
 st.set_page_config(
     page_title="Campus Friction Intelligence",
+    page_icon="📊",
     layout="wide"
 )
 
@@ -23,7 +24,19 @@ data = {
         "1:15 PM", "12:30 PM", "1:10 PM", "2:00 PM",
         "12:45 PM", "3:30 PM"
     ],
-    "Severity": [4, 5, 4, 3, 5, 3, 4, 4, 5, 3]
+    "Severity": [4, 5, 4, 3, 5, 3, 4, 4, 5, 3],
+    "Description": [
+        "Internet connection is slow",
+        "Long queue during lunch",
+        "Computers are working slowly",
+        "Not enough seats available",
+        "Wi-Fi becomes very slow",
+        "Drinking water problem",
+        "Queue becomes very long",
+        "Computer takes time to respond",
+        "Internet disconnects frequently",
+        "Library seats are occupied"
+    ]
 }
 
 if "reports" not in st.session_state:
@@ -32,25 +45,59 @@ if "reports" not in st.session_state:
 df = st.session_state.reports
 
 st.title("Campus Friction Intelligence")
-st.caption("College problem analysis using student reports")
+st.caption("Finding recurring problems in college using student reports")
 
-total = len(df)
-high = len(df[df["Severity"] >= 4])
-top_problem = df["Problem"].value_counts().idxmax()
-top_location = df["Location"].value_counts().idxmax()
+st.divider()
 
 c1, c2, c3, c4 = st.columns(4)
 
-c1.metric("Total Reports", total)
-c2.metric("High Severity", high)
-c3.metric("Top Problem", top_problem)
-c4.metric("Top Location", top_location)
+c1.metric("Total Reports", len(df))
+c2.metric("High Severity", len(df[df["Severity"] >= 4]))
+c3.metric("Top Problem", df["Problem"].value_counts().idxmax())
+c4.metric("Top Location", df["Location"].value_counts().idxmax())
+
+st.divider()
+
+st.subheader("Explore Reports")
+
+f1, f2 = st.columns(2)
+
+with f1:
+    selected_problem = st.selectbox(
+        "Filter by Problem",
+        ["All"] + sorted(df["Problem"].unique().tolist())
+    )
+
+with f2:
+    selected_location = st.selectbox(
+        "Filter by Location",
+        ["All"] + sorted(df["Location"].unique().tolist())
+    )
+
+filtered_df = df.copy()
+
+if selected_problem != "All":
+    filtered_df = filtered_df[
+        filtered_df["Problem"] == selected_problem
+    ]
+
+if selected_location != "All":
+    filtered_df = filtered_df[
+        filtered_df["Location"] == selected_location
+    ]
+
+st.dataframe(
+    filtered_df,
+    use_container_width=True,
+    hide_index=True
+)
 
 st.subheader("Problem Analysis")
 
 result = []
 
 for problem in df["Problem"].unique():
+
     values = df[df["Problem"] == problem]["Severity"]
 
     reports = len(values)
@@ -105,13 +152,15 @@ st.bar_chart(df["Severity"].value_counts().sort_index())
 st.subheader("Location-wise Reports")
 st.bar_chart(df["Location"].value_counts())
 
+top_problem = analysis.iloc[0]["Problem"]
+
 recommendations = {
-    "Wi-Fi": "Wi-Fi should be checked in the affected areas.",
+    "Wi-Fi": "Wi-Fi should be checked in the areas where reports are frequent.",
     "Canteen Queue": "Queue management should be improved during busy hours.",
-    "Slow Computer": "Lab computers should be checked and maintained.",
-    "No Seats": "Library seating should be increased during busy hours.",
-    "Water Problem": "Drinking water facilities should be checked.",
-    "Electricity": "Electrical equipment should be checked in the affected area.",
+    "Slow Computer": "Lab computers should be checked and maintained regularly.",
+    "No Seats": "Library seating should be increased during peak hours.",
+    "Water Problem": "Drinking water facilities should be checked regularly.",
+    "Electricity": "Electrical equipment and power usage should be checked.",
     "Noise": "The source of noise should be identified and managed."
 }
 
@@ -120,44 +169,50 @@ st.subheader("Recommendation")
 st.info(
     recommendations.get(
         top_problem,
-        "The problem with the highest priority needs attention."
+        "The highest priority problem needs attention."
     )
 )
 
 st.subheader("Report a Problem")
 
-problem = st.selectbox(
-    "Problem",
-    [
-        "Wi-Fi",
-        "Canteen Queue",
-        "Slow Computer",
-        "No Seats",
-        "Water Problem",
-        "Electricity",
-        "Noise",
-        "Other"
-    ]
-)
+p1, p2 = st.columns(2)
 
-location = st.selectbox(
-    "Location",
-    [
-        "Block A",
-        "Block B",
-        "Canteen",
-        "Library",
-        "Lab 1",
-        "Lab 2",
-        "Other"
-    ]
-)
+with p1:
+    problem = st.selectbox(
+        "Problem",
+        [
+            "Wi-Fi",
+            "Canteen Queue",
+            "Slow Computer",
+            "No Seats",
+            "Water Problem",
+            "Electricity",
+            "Noise",
+            "Other"
+        ]
+    )
+
+with p2:
+    location = st.selectbox(
+        "Location",
+        [
+            "Block A",
+            "Block B",
+            "Canteen",
+            "Library",
+            "Lab 1",
+            "Lab 2",
+            "Other"
+        ]
+    )
 
 severity = st.slider("Severity", 1, 5, 3)
 
-description = st.text_area("Description")
+description = st.text_area(
+    "Describe the problem"
+)
 
-if st.button("Submit"):
+if st.button("Submit Report"):
 
     if description.strip():
 
@@ -165,7 +220,8 @@ if st.button("Submit"):
             "Problem": problem,
             "Location": location,
             "Time": "Not specified",
-            "Severity": severity
+            "Severity": severity,
+            "Description": description
         }])
 
         st.session_state.reports = pd.concat(
@@ -177,4 +233,4 @@ if st.button("Submit"):
         st.rerun()
 
     else:
-        st.warning("Please enter a description.")
+        st.warning("Please describe the problem.")
