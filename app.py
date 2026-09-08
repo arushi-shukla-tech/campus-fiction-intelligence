@@ -26,7 +26,10 @@ data = {
     "Severity": [4, 5, 4, 3, 5, 3, 4, 4, 5, 3]
 }
 
-df = pd.DataFrame(data)
+if "reports" not in st.session_state:
+    st.session_state.reports = pd.DataFrame(data)
+
+df = st.session_state.reports
 
 st.title("Campus Friction Intelligence")
 st.caption("College problem analysis using student reports")
@@ -48,7 +51,6 @@ st.subheader("Problem Analysis")
 result = []
 
 for problem in df["Problem"].unique():
-
     values = df[df["Problem"] == problem]["Severity"]
 
     reports = len(values)
@@ -108,10 +110,13 @@ recommendations = {
     "Canteen Queue": "Queue management should be improved during busy hours.",
     "Slow Computer": "Lab computers should be checked and maintained.",
     "No Seats": "Library seating should be increased during busy hours.",
-    "Water Problem": "Drinking water facilities should be checked."
+    "Water Problem": "Drinking water facilities should be checked.",
+    "Electricity": "Electrical equipment should be checked in the affected area.",
+    "Noise": "The source of noise should be identified and managed."
 }
 
 st.subheader("Recommendation")
+
 st.info(
     recommendations.get(
         top_problem,
@@ -160,16 +165,16 @@ if st.button("Submit"):
             "Problem": problem,
             "Location": location,
             "Time": "Not specified",
-            "Severity": severity,
-            "Description": description
+            "Severity": severity
         }])
 
-        df = pd.concat(
-            [df, new_report],
+        st.session_state.reports = pd.concat(
+            [st.session_state.reports, new_report],
             ignore_index=True
         )
 
         st.success("Report submitted successfully.")
+        st.rerun()
 
     else:
         st.warning("Please enter a description.")
