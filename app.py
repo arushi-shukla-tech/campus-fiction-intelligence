@@ -7,6 +7,35 @@ st.set_page_config(
     layout="wide"
 )
 
+st.markdown("""
+<style>
+.main-title {
+    font-size: 42px;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    font-size: 18px;
+    color: #666;
+    margin-bottom: 25px;
+}
+
+.card {
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    background: #fafafa;
+}
+
+.section-title {
+    font-size: 25px;
+    font-weight: 600;
+    margin-top: 30px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 data = {
     "Problem": [
         "Wi-Fi", "Canteen Queue", "Slow Computer",
@@ -44,8 +73,15 @@ if "reports" not in st.session_state:
 
 df = st.session_state.reports
 
-st.title("Campus Problem Analysis")
-st.caption("Analysis of common college problems using student reports")
+st.markdown(
+    '<div class="main-title">Campus Problem Analysis</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">Analysis of common college problems using student reports</div>',
+    unsafe_allow_html=True
+)
 
 st.divider()
 
@@ -56,9 +92,10 @@ c2.metric("High Severity", len(df[df["Severity"] >= 4]))
 c3.metric("Top Problem", df["Problem"].value_counts().idxmax())
 c4.metric("Top Location", df["Location"].value_counts().idxmax())
 
-st.divider()
-
-st.subheader("Explore Reports")
+st.markdown(
+    '<div class="section-title">Explore Reports</div>',
+    unsafe_allow_html=True
+)
 
 f1, f2 = st.columns(2)
 
@@ -92,7 +129,10 @@ st.dataframe(
     hide_index=True
 )
 
-st.subheader("Problem Analysis")
+st.markdown(
+    '<div class="section-title">Problem Analysis</div>',
+    unsafe_allow_html=True
+)
 
 result = []
 
@@ -143,16 +183,33 @@ st.dataframe(
     hide_index=True
 )
 
-st.subheader("Problem-wise Reports")
+st.markdown(
+    '<div class="section-title">Problem-wise Reports</div>',
+    unsafe_allow_html=True
+)
+
 st.bar_chart(df["Problem"].value_counts())
 
-st.subheader("Severity Analysis")
-st.bar_chart(df["Severity"].value_counts().sort_index())
+st.markdown(
+    '<div class="section-title">Severity Analysis</div>',
+    unsafe_allow_html=True
+)
 
-st.subheader("Location-wise Reports")
+st.bar_chart(
+    df["Severity"].value_counts().sort_index()
+)
+
+st.markdown(
+    '<div class="section-title">Location-wise Reports</div>',
+    unsafe_allow_html=True
+)
+
 st.bar_chart(df["Location"].value_counts())
 
-st.subheader("Problem Patterns")
+st.markdown(
+    '<div class="section-title">Problem Patterns</div>',
+    unsafe_allow_html=True
+)
 
 patterns = (
     df.groupby(["Problem", "Location"])
@@ -167,7 +224,10 @@ st.dataframe(
     hide_index=True
 )
 
-st.subheader("Time Analysis")
+st.markdown(
+    '<div class="section-title">Time Analysis</div>',
+    unsafe_allow_html=True
+)
 
 time_count = df["Time"].value_counts()
 
@@ -185,7 +245,10 @@ top_location = df[
     df["Problem"] == top_problem
 ]["Location"].value_counts().idxmax()
 
-st.subheader("Smart Insight")
+st.markdown(
+    '<div class="section-title">Smart Insight</div>',
+    unsafe_allow_html=True
+)
 
 st.success(
     f"{top_problem} is the highest-priority problem, "
@@ -202,7 +265,10 @@ recommendations = {
     "Noise": "The source of noise should be identified and managed."
 }
 
-st.subheader("Recommendation")
+st.markdown(
+    '<div class="section-title">Recommendation</div>',
+    unsafe_allow_html=True
+)
 
 st.info(
     recommendations.get(
@@ -211,7 +277,10 @@ st.info(
     )
 )
 
-st.subheader("Report a Problem")
+st.markdown(
+    '<div class="section-title">Report a Problem</div>',
+    unsafe_allow_html=True
+)
 
 p1, p2 = st.columns(2)
 
