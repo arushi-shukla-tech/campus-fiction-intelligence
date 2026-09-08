@@ -153,6 +153,14 @@ st.subheader("Location-wise Reports")
 st.bar_chart(df["Location"].value_counts())
 
 top_problem = analysis.iloc[0]["Problem"]
+top_location = df[df["Problem"] == top_problem]["Location"].value_counts().idxmax()
+
+st.subheader("Smart Insight")
+
+st.success(
+    f"{top_problem} is the highest-priority problem, "
+    f"with the most reports coming from {top_location}."
+)
 
 recommendations = {
     "Wi-Fi": "Wi-Fi should be checked in the areas where reports are frequent.",
@@ -208,9 +216,7 @@ with p2:
 
 severity = st.slider("Severity", 1, 5, 3)
 
-description = st.text_area(
-    "Describe the problem"
-)
+description = st.text_area("Describe the problem")
 
 if st.button("Submit Report"):
 
