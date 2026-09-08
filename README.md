@@ -1,1 +1,0 @@
-# campus-fiction-intelligence
