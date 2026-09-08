@@ -21,13 +21,6 @@ st.markdown("""
     margin-bottom: 25px;
 }
 
-.card {
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    background: #fafafa;
-}
-
 .section-title {
     font-size: 25px;
     font-weight: 600;
@@ -275,6 +268,41 @@ st.info(
         top_problem,
         "The highest priority problem needs attention."
     )
+)
+
+st.markdown(
+    '<div class="section-title">Problem Prediction</div>',
+    unsafe_allow_html=True
+)
+
+prediction = analysis.iloc[0]
+
+st.write(
+    f"Based on the current reports, "
+    f"{prediction['Problem']} is most likely to need attention next."
+)
+
+st.write(
+    f"Current priority score: {prediction['Priority Score']}"
+)
+
+st.caption(
+    "This prediction is based on the current report data. "
+    "More real college data can improve future predictions."
+)
+
+st.markdown(
+    '<div class="section-title">Download Analysis</div>',
+    unsafe_allow_html=True
+)
+
+csv_data = df.to_csv(index=False)
+
+st.download_button(
+    "Download Reports",
+    csv_data,
+    "campus_reports.csv",
+    "text/csv"
 )
 
 st.markdown(
