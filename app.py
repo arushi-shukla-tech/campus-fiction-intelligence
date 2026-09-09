@@ -10,8 +10,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- GOOGLE SHEETS ----------------
-
+# Google Sheets
 scope = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -43,7 +42,7 @@ def load_data():
 
     df = pd.DataFrame(records)
 
-    required_columns = [
+    columns = [
         "Problem",
         "Location",
         "Time",
@@ -52,11 +51,11 @@ def load_data():
         "Date"
     ]
 
-    for col in required_columns:
+    for col in columns:
         if col not in df.columns:
             df[col] = ""
 
-    df = df[required_columns]
+    df = df[columns]
 
     df["Severity"] = pd.to_numeric(
         df["Severity"],
@@ -65,7 +64,8 @@ def load_data():
 
     df["Date"] = pd.to_datetime(
         df["Date"],
-        errors="coerce"
+        errors="coerce",
+        dayfirst=True
     )
 
     df = df.dropna(
@@ -82,8 +82,7 @@ def load_data():
 
 df = load_data()
 
-# ---------------- SIDEBAR ----------------
-
+# Sidebar
 st.sidebar.title("🎓 Campus Problem Analysis")
 
 page = st.sidebar.radio(
@@ -96,8 +95,7 @@ page = st.sidebar.radio(
     ]
 )
 
-# ---------------- FILTERS ----------------
-
+# Filters
 filtered_df = df.copy()
 
 if not df.empty:
@@ -105,29 +103,29 @@ if not df.empty:
     st.sidebar.markdown("---")
     st.sidebar.subheader("🔎 Filters")
 
-    problem_options = sorted(
-        df["Problem"].dropna().unique().tolist()
+    problems = sorted(
+        df["Problem"].unique().tolist()
     )
 
-    location_options = sorted(
-        df["Location"].dropna().unique().tolist()
+    locations = sorted(
+        df["Location"].unique().tolist()
     )
 
     selected_problems = st.sidebar.multiselect(
         "Problem",
-        problem_options
+        problems
     )
 
     selected_locations = st.sidebar.multiselect(
         "Location",
-        location_options
+        locations
     )
 
     severity_range = st.sidebar.slider(
         "Severity",
-        min_value=1,
-        max_value=5,
-        value=(1, 5)
+        1,
+        5,
+        (1, 5)
     )
 
     if selected_problems:
@@ -147,11 +145,29 @@ if not df.empty:
         )
     ]
 
+
+# Priority function
+def get_priority(score):
+
+    if score >= 16:
+        return "🔴 Critical"
+
+    elif score >= 11:
+        return "🟠 High"
+
+    elif score >= 6:
+        return "🟡 Medium"
+
+    else:
+        return "🟢 Low"
+
+
 # ---------------- DASHBOARD ----------------
 
 if page == "🏠 Dashboard":
 
     st.title("🎓 Campus Problem Analysis")
+
     st.caption(
         "Analysis of common college problems using student reports"
     )
@@ -187,32 +203,82 @@ if page == "🏠 Dashboard":
     st.markdown("---")
 
     if filtered_df.empty:
-        st.warning("No reports match the selected filters.")
+        st.warning(
+            "No reports match the selected filters."
+        )
         st.stop()
 
+    # Priority overview
+    st.subheader("🚨 Priority Overview")
+
+    priority_data = (
+        filtered_df.groupby("Problem")
+        .agg(
+            Reports=("Problem", "count"),
+            Average_Severity=("Severity", "mean")
+        )
+    )
+
+    priority_data["Frequency Score"] = (
+        priority_data["Reports"] /
+        priority_data["Reports"].max()
+    ) * 10
+
+    priority_data["Severity Score"] = (
+        priority_data["Average_Severity"] / 5
+    ) * 10
+
+    priority_data["Priority Score"] = (
+        priority_data["Frequency Score"] * 0.5
+        + priority_data["Severity Score"] * 0.5
+    )
+
+    priority_data["Priority"] = (
+        priority_data["Priority Score"]
+        .apply(get_priority)
+    )
+
+    priority_data = priority_data.sort_values(
+        "Priority Score",
+        ascending=False
+    )
+
+    st.dataframe(
+        priority_data[
+            [
+                "Reports",
+                "Average_Severity",
+                "Priority Score",
+                "Priority"
+            ]
+        ].round(2),
+        use_container_width=True
+    )
+
+    # Charts
     col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("📌 Problem Frequency")
 
-        problem_counts = (
+        counts = (
             filtered_df["Problem"]
             .value_counts()
             .sort_values()
         )
 
-        st.bar_chart(problem_counts)
+        st.bar_chart(counts)
 
     with col2:
         st.subheader("⚠️ Severity Distribution")
 
-        severity_counts = (
+        severity = (
             filtered_df["Severity"]
             .value_counts()
             .sort_index()
         )
 
-        st.bar_chart(severity_counts)
+        st.bar_chart(severity)
 
     col1, col2 = st.columns(2)
 
@@ -237,12 +303,13 @@ if page == "🏠 Dashboard":
 
         st.bar_chart(time_counts)
 
-    # -------- NEW TREND ANALYSIS --------
-
+    # Trend
     st.markdown("---")
     st.subheader("📈 Problem Trend")
 
-    trend_df = filtered_df.dropna(subset=["Date"]).copy()
+    trend_df = filtered_df.dropna(
+        subset=["Date"]
+    ).copy()
 
     if not trend_df.empty:
 
@@ -250,21 +317,17 @@ if page == "🏠 Dashboard":
             trend_df["Date"]
         ).dt.date
 
-        daily_reports = (
+        daily = (
             trend_df.groupby("Date")
             .size()
             .rename("Reports")
         )
 
-        st.line_chart(daily_reports)
-
-        st.caption(
-            "Shows how the number of reported problems changes over time."
-        )
+        st.line_chart(daily)
 
     else:
         st.info(
-            "Trend analysis will appear when reports have dates."
+            "Trend will appear when reports have valid dates."
         )
 
 
@@ -275,12 +338,11 @@ elif page == "📊 Analysis":
     st.title("📊 Detailed Analysis")
 
     if filtered_df.empty:
-        st.warning("No data available for the selected filters.")
+        st.warning("No data available.")
         st.stop()
 
-    # Priority Score
-
-    st.subheader("🎯 Priority Analysis")
+    # Priority analysis
+    st.subheader("🚨 Smart Priority Analysis")
 
     priority = (
         filtered_df.groupby("Problem")
@@ -290,9 +352,23 @@ elif page == "📊 Analysis":
         )
     )
 
+    priority["Frequency Score"] = (
+        priority["Reports"] /
+        priority["Reports"].max()
+    ) * 10
+
+    priority["Severity Score"] = (
+        priority["Average_Severity"] / 5
+    ) * 10
+
     priority["Priority Score"] = (
-        priority["Reports"] *
-        priority["Average_Severity"]
+        priority["Frequency Score"] * 0.5
+        + priority["Severity Score"] * 0.5
+    )
+
+    priority["Priority"] = (
+        priority["Priority Score"]
+        .apply(get_priority)
     )
 
     priority = priority.sort_values(
@@ -305,8 +381,16 @@ elif page == "📊 Analysis":
         use_container_width=True
     )
 
-    # Problem x Location
+    # Highest priority
+    highest = priority.iloc[0]
 
+    st.success(
+        f"🚨 Highest priority problem: "
+        f"**{priority.index[0]}** "
+        f"({highest['Priority']})"
+    )
+
+    # Problem x Location
     st.subheader("📍 Problem × Location")
 
     problem_location = pd.crosstab(
@@ -319,23 +403,7 @@ elif page == "📊 Analysis":
         use_container_width=True
     )
 
-    # Time Analysis
-
-    st.subheader("🕐 Time Analysis")
-
-    time_analysis = (
-        filtered_df["Time"]
-        .value_counts()
-        .rename_axis("Time")
-        .reset_index(name="Reports")
-    )
-
-    st.bar_chart(
-        time_analysis.set_index("Time")
-    )
-
-    # Location Analysis
-
+    # Location analysis
     st.subheader("📍 Location Analysis")
 
     location_analysis = (
@@ -355,55 +423,41 @@ elif page == "📊 Analysis":
         use_container_width=True
     )
 
-    # -------- NEW TREND ANALYSIS --------
+    # Time analysis
+    st.subheader("🕐 Time Analysis")
 
+    time_analysis = (
+        filtered_df["Time"]
+        .value_counts()
+    )
+
+    st.bar_chart(time_analysis)
+
+    # Trend
     st.subheader("📈 Reports Over Time")
 
-    trend_df = filtered_df.dropna(
+    trend = filtered_df.dropna(
         subset=["Date"]
     ).copy()
 
-    if not trend_df.empty:
+    if not trend.empty:
 
-        trend_df["Date"] = pd.to_datetime(
-            trend_df["Date"]
+        trend["Date"] = pd.to_datetime(
+            trend["Date"]
         ).dt.date
 
-        daily_trend = (
-            trend_df.groupby("Date")
+        daily = (
+            trend.groupby("Date")
             .size()
             .rename("Reports")
         )
 
-        st.line_chart(daily_trend)
-
-        # Weekly trend
-
-        weekly_df = trend_df.copy()
-
-        weekly_df["Week"] = (
-            pd.to_datetime(
-                weekly_df["Date"]
-            ).dt.to_period("W")
-            .astype(str)
-        )
-
-        weekly_trend = (
-            weekly_df.groupby("Week")
-            .size()
-            .rename("Reports")
-        )
-
-        st.subheader("📅 Weekly Trend")
-
-        st.bar_chart(weekly_trend)
+        st.line_chart(daily)
 
     else:
         st.info(
-            "Add dated reports to see time trends."
+            "Add valid dates to reports to see trends."
         )
-
-    # Download
 
     csv = filtered_df.to_csv(
         index=False
@@ -424,8 +478,7 @@ elif page == "📝 Report Problem":
     st.title("📝 Report a Campus Problem")
 
     st.write(
-        "Submit a problem anonymously. "
-        "Your report will be added to the campus dataset."
+        "Submit a problem anonymously."
     )
 
     problem = st.selectbox(
@@ -469,9 +522,9 @@ elif page == "📝 Report Problem":
 
     severity = st.slider(
         "Severity",
-        min_value=1,
-        max_value=5,
-        value=3
+        1,
+        5,
+        3
     )
 
     description = st.text_area(
@@ -480,7 +533,7 @@ elif page == "📝 Report Problem":
     )
 
     report_date = date.today().strftime(
-        "%Y-%m-%d"
+        "%d-%m-%Y"
     )
 
     st.caption(
@@ -521,14 +574,44 @@ elif page == "💡 Insights":
     st.title("💡 Smart Insights")
 
     if filtered_df.empty:
-        st.warning("No data available for the selected filters.")
+        st.warning("No data available.")
         st.stop()
 
-    top_problem = (
-        filtered_df["Problem"]
-        .value_counts()
-        .idxmax()
+    # Priority calculation
+    priority = (
+        filtered_df.groupby("Problem")
+        .agg(
+            Reports=("Problem", "count"),
+            Average_Severity=("Severity", "mean")
+        )
     )
+
+    priority["Frequency Score"] = (
+        priority["Reports"] /
+        priority["Reports"].max()
+    ) * 10
+
+    priority["Severity Score"] = (
+        priority["Average_Severity"] / 5
+    ) * 10
+
+    priority["Priority Score"] = (
+        priority["Frequency Score"] * 0.5
+        + priority["Severity Score"] * 0.5
+    )
+
+    priority["Priority"] = (
+        priority["Priority Score"]
+        .apply(get_priority)
+    )
+
+    priority = priority.sort_values(
+        "Priority Score",
+        ascending=False
+    )
+
+    top_problem = priority.index[0]
+    top_priority = priority.iloc[0]["Priority"]
 
     top_location = (
         filtered_df["Location"]
@@ -542,70 +625,67 @@ elif page == "💡 Insights":
         .idxmax()
     )
 
-    high_severity = (
-        filtered_df["Severity"]
-        .mean()
-    )
+    st.subheader("🚨 Problems Needing Attention")
 
-    st.subheader("📌 Key Findings")
-
-    st.write(
-        f"• Most reported problem: **{top_problem}**"
+    st.info(
+        f"**{top_problem}** currently has the highest priority: "
+        f"**{top_priority}**."
     )
 
     st.write(
-        f"• Most affected location: **{top_location}**"
+        f"📍 Most affected location: **{top_location}**"
     )
 
     st.write(
-        f"• Most common reporting time: **{peak_time}**"
+        f"🕐 Most common reporting time: **{peak_time}**"
     )
 
     st.write(
-        f"• Average severity: **{high_severity:.1f}/5**"
+        f"📊 Average severity: "
+        f"**{filtered_df['Severity'].mean():.1f}/5**"
     )
 
     st.markdown("---")
 
-    st.subheader("💡 Recommended Actions")
+    st.subheader("💡 Recommended Action")
 
     recommendations = {
         "Wi-Fi":
             "IT team should check network connectivity and access points.",
         "Canteen":
-            "Consider improving queue management during peak hours.",
+            "Queue management and service capacity should be reviewed.",
         "Lab PC":
-            "Technical team should inspect slow or faulty systems.",
+            "Technical team should inspect slow or faulty computers.",
         "Library":
-            "Review seating availability and resource access.",
+            "Seating availability and library resources should be reviewed.",
         "Water":
             "Facilities team should inspect water supply points.",
         "Electricity":
-            "Maintenance team should check electrical infrastructure.",
+            "Maintenance team should inspect electrical infrastructure.",
         "Cleanliness":
-            "Cleaning frequency may need to be increased."
+            "Cleaning frequency should be reviewed."
     }
 
     if top_problem in recommendations:
-        st.info(
+        st.success(
             recommendations[top_problem]
         )
     else:
-        st.info(
-            "The administration should review the reported issue and "
-            "identify an appropriate solution."
+        st.success(
+            "Administration should review this problem "
+            "and identify an appropriate solution."
         )
 
     st.markdown("---")
 
     st.caption(
-        "Note: Current insights are based on submitted reports "
-        "and priority analysis. They are not ML predictions."
+        "Priority is calculated using report frequency "
+        "and average severity. It is an analytical scoring system, "
+        "not an ML prediction."
     )
 
 
-# ---------------- FOOTER ----------------
-
+# Footer
 st.markdown("---")
 
 st.caption(
