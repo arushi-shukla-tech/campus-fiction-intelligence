@@ -89,9 +89,59 @@ page = st.sidebar.radio(
 
 st.sidebar.divider()
 
-st.sidebar.caption(
-    "Data source: Google Sheets"
-)
+
+# -------------------------------------------------
+# FILTERS
+# -------------------------------------------------
+
+if not df.empty:
+
+    st.sidebar.subheader("🔎 Filters")
+
+    problem_options = sorted(
+        df["Problem"].unique().tolist()
+    )
+
+    selected_problem = st.sidebar.multiselect(
+        "Problem",
+        problem_options,
+        default=problem_options
+    )
+
+
+    location_options = sorted(
+        df["Location"].unique().tolist()
+    )
+
+    selected_location = st.sidebar.multiselect(
+        "Location",
+        location_options,
+        default=location_options
+    )
+
+
+    severity_range = st.sidebar.slider(
+        "Severity",
+        min_value=1,
+        max_value=5,
+        value=(1, 5)
+    )
+
+
+    filtered_df = df[
+        df["Problem"].isin(selected_problem)
+        &
+        df["Location"].isin(selected_location)
+        &
+        df["Severity"].between(
+            severity_range[0],
+            severity_range[1]
+        )
+    ]
+
+else:
+
+    filtered_df = df.copy()
 
 
 # =================================================
@@ -103,43 +153,53 @@ if page == "🏠 Dashboard":
     st.title("Campus Problem Analysis")
 
     st.write(
-        "A data-driven dashboard for understanding "
-        "common problems reported by students."
+        "Interactive analysis of common problems "
+        "reported by students."
     )
 
     st.divider()
 
+
     if df.empty:
 
         st.info(
-            "No reports available yet. "
-            "Go to 'Report Problem' to add a report."
+            "No reports available yet."
+        )
+
+    elif filtered_df.empty:
+
+        st.warning(
+            "No reports match the selected filters."
         )
 
     else:
 
         # -----------------------------------------
-        # TOP METRICS
+        # METRICS
         # -----------------------------------------
 
-        total_reports = len(df)
+        total_reports = len(filtered_df)
 
         high_severity = len(
-            df[df["Severity"] >= 4]
+            filtered_df[
+                filtered_df["Severity"] >= 4
+            ]
         )
 
         average_severity = round(
-            df["Severity"].mean(),
+            filtered_df["Severity"].mean(),
             2
         )
 
         top_problem = (
-            df["Problem"]
+            filtered_df["Problem"]
             .value_counts()
             .idxmax()
         )
 
+
         c1, c2, c3, c4 = st.columns(4)
+
 
         c1.metric(
             "📋 Total Reports",
@@ -172,7 +232,7 @@ if page == "🏠 Dashboard":
         st.subheader("📌 Problem Frequency")
 
         problem_count = (
-            df["Problem"]
+            filtered_df["Problem"]
             .value_counts()
             .sort_values(ascending=True)
         )
@@ -184,7 +244,7 @@ if page == "🏠 Dashboard":
 
 
         # -----------------------------------------
-        # TWO COLUMN ANALYSIS
+        # TWO GRAPHS
         # -----------------------------------------
 
         left, right = st.columns(2)
@@ -192,10 +252,12 @@ if page == "🏠 Dashboard":
 
         with left:
 
-            st.subheader("⚠️ Severity Distribution")
+            st.subheader(
+                "⚠️ Severity Distribution"
+            )
 
             severity_count = (
-                df["Severity"]
+                filtered_df["Severity"]
                 .value_counts()
                 .sort_index()
             )
@@ -207,10 +269,12 @@ if page == "🏠 Dashboard":
 
         with right:
 
-            st.subheader("📍 Reports by Location")
+            st.subheader(
+                "📍 Reports by Location"
+            )
 
             location_count = (
-                df["Location"]
+                filtered_df["Location"]
                 .value_counts()
             )
 
@@ -219,18 +283,24 @@ if page == "🏠 Dashboard":
             )
 
 
+        st.divider()
+
+
         # -----------------------------------------
-        # RECENT REPORTS
+        # TIME PATTERN
         # -----------------------------------------
 
-        st.subheader("📝 Recent Reports")
+        st.subheader(
+            "⏰ Reporting Time Pattern"
+        )
 
-        recent = df.tail(8).copy()
+        time_count = (
+            filtered_df["Time"]
+            .value_counts()
+        )
 
-        st.dataframe(
-            recent,
-            use_container_width=True,
-            hide_index=True
+        st.bar_chart(
+            time_count
         )
 
 
@@ -245,23 +315,34 @@ elif page == "📊 Analysis":
     if df.empty:
 
         st.info(
-            "No data available. Add some reports first."
+            "No reports available."
+        )
+
+    elif filtered_df.empty:
+
+        st.warning(
+            "No reports match the selected filters."
         )
 
     else:
 
         # -----------------------------------------
-        # PRIORITY ANALYSIS
+        # PRIORITY SCORE
         # -----------------------------------------
 
-        st.subheader("🎯 Problem Priority Ranking")
+        st.subheader(
+            "🎯 Problem Priority Ranking"
+        )
 
         priority_rows = []
 
-        for problem in df["Problem"].unique():
 
-            problem_data = df[
-                df["Problem"] == problem
+        for problem in filtered_df[
+            "Problem"
+        ].unique():
+
+            problem_data = filtered_df[
+                filtered_df["Problem"] == problem
             ]
 
             reports = len(problem_data)
@@ -274,29 +355,40 @@ elif page == "📊 Analysis":
                 reports * avg_severity
             )
 
+
             if priority_score >= 15:
+
                 level = "Critical"
 
             elif priority_score >= 10:
+
                 level = "High"
 
             elif priority_score >= 5:
+
                 level = "Medium"
 
             else:
+
                 level = "Low"
 
+
             priority_rows.append({
+
                 "Problem": problem,
+
                 "Reports": reports,
+
                 "Average Severity": round(
                     avg_severity,
                     2
                 ),
+
                 "Priority Score": round(
                     priority_score,
                     2
                 ),
+
                 "Priority Level": level
             })
 
@@ -305,10 +397,12 @@ elif page == "📊 Analysis":
             priority_rows
         )
 
+
         priority_df = priority_df.sort_values(
             "Priority Score",
             ascending=False
         )
+
 
         st.dataframe(
             priority_df,
@@ -325,16 +419,18 @@ elif page == "📊 Analysis":
         # -----------------------------------------
 
         st.subheader(
-            "📍 Problem × Location Analysis"
+            "📍 Problem × Location"
         )
 
-        location_table = pd.crosstab(
-            df["Problem"],
-            df["Location"]
+
+        problem_location = pd.crosstab(
+            filtered_df["Problem"],
+            filtered_df["Location"]
         )
+
 
         st.dataframe(
-            location_table,
+            problem_location,
             use_container_width=True
         )
 
@@ -343,26 +439,30 @@ elif page == "📊 Analysis":
 
 
         # -----------------------------------------
-        # TIME PATTERN
+        # TIME ANALYSIS
         # -----------------------------------------
 
         st.subheader(
-            "⏰ Reporting Time Pattern"
+            "⏰ Time Analysis"
         )
 
+
         time_count = (
-            df["Time"]
+            filtered_df["Time"]
             .value_counts()
         )
+
 
         st.bar_chart(
             time_count
         )
 
+
         peak_time = time_count.idxmax()
 
+
         st.info(
-            f"⏰ Most reports are associated with "
+            f"Most reports are associated with "
             f"**{peak_time}**."
         )
 
@@ -371,27 +471,37 @@ elif page == "📊 Analysis":
 
 
         # -----------------------------------------
-        # LOCATION PERFORMANCE
+        # LOCATION ANALYSIS
         # -----------------------------------------
 
         st.subheader(
-            "📍 Location-wise Analysis"
+            "📍 Location Analysis"
         )
 
+
         location_analysis = (
-            df.groupby("Location")
+            filtered_df
+            .groupby("Location")
             .agg(
                 Reports=("Problem", "count"),
-                Average_Severity=("Severity", "mean")
+                Average_Severity=(
+                    "Severity",
+                    "mean"
+                )
             )
             .reset_index()
         )
 
+
         location_analysis[
             "Average_Severity"
-        ] = location_analysis[
-            "Average_Severity"
-        ].round(2)
+        ] = (
+            location_analysis[
+                "Average_Severity"
+            ]
+            .round(2)
+        )
+
 
         location_analysis = (
             location_analysis
@@ -400,6 +510,7 @@ elif page == "📊 Analysis":
                 ascending=False
             )
         )
+
 
         st.dataframe(
             location_analysis,
@@ -415,14 +526,12 @@ elif page == "📊 Analysis":
         # DOWNLOAD
         # -----------------------------------------
 
-        csv_data = priority_df.to_csv(
-            index=False
-        )
-
         st.download_button(
-            "📥 Download Priority Analysis",
-            csv_data,
-            "campus_priority_analysis.csv",
+            "📥 Download Filtered Analysis",
+            priority_df.to_csv(
+                index=False
+            ),
+            "campus_filtered_analysis.csv",
             "text/csv"
         )
 
@@ -436,8 +545,7 @@ elif page == "📝 Report Problem":
     st.title("📝 Report a Campus Problem")
 
     st.write(
-        "Submit a problem anonymously. "
-        "Your report will be added to the dataset."
+        "Submit a problem anonymously."
     )
 
     st.divider()
@@ -498,16 +606,16 @@ elif page == "📝 Report Problem":
 
     severity = st.slider(
         "Severity",
-        min_value=1,
-        max_value=5,
-        value=3
+        1,
+        5,
+        3
     )
 
 
     description = st.text_area(
         "Describe the problem",
         placeholder=(
-            "Example: Wi-Fi becomes very slow "
+            "Example: Wi-Fi becomes slow "
             "during lunch time."
         )
     )
@@ -518,13 +626,7 @@ elif page == "📝 Report Problem":
         type="primary"
     ):
 
-        if not description.strip():
-
-            st.warning(
-                "Please describe the problem."
-            )
-
-        else:
+        if description.strip():
 
             sheet.append_row([
                 problem,
@@ -540,6 +642,12 @@ elif page == "📝 Report Problem":
 
             st.rerun()
 
+        else:
+
+            st.warning(
+                "Please describe the problem."
+            )
+
 
 # =================================================
 # INSIGHTS
@@ -549,26 +657,33 @@ elif page == "💡 Insights":
 
     st.title("💡 Smart Insights")
 
+
     if df.empty:
 
         st.info(
-            "Add some reports to generate insights."
+            "Add reports to generate insights."
+        )
+
+    elif filtered_df.empty:
+
+        st.warning(
+            "No reports match the selected filters."
         )
 
     else:
 
         problem_count = (
-            df["Problem"]
+            filtered_df["Problem"]
             .value_counts()
         )
 
         location_count = (
-            df["Location"]
+            filtered_df["Location"]
             .value_counts()
         )
 
         time_count = (
-            df["Time"]
+            filtered_df["Time"]
             .value_counts()
         )
 
@@ -580,12 +695,14 @@ elif page == "💡 Insights":
         peak_time = time_count.idxmax()
 
         high_severity = len(
-            df[df["Severity"] >= 4]
+            filtered_df[
+                filtered_df["Severity"] >= 4
+            ]
         )
 
 
         # -----------------------------------------
-        # MOST REPORTED PROBLEM
+        # INSIGHTS
         # -----------------------------------------
 
         st.subheader(
@@ -593,14 +710,10 @@ elif page == "💡 Insights":
         )
 
         st.success(
-            f"**{top_problem}** is currently "
-            f"the most frequently reported problem."
+            f"**{top_problem}** is the most "
+            f"frequently reported problem."
         )
 
-
-        # -----------------------------------------
-        # LOCATION HOTSPOT
-        # -----------------------------------------
 
         st.subheader(
             "📍 Problem Hotspot"
@@ -608,13 +721,9 @@ elif page == "💡 Insights":
 
         st.info(
             f"**{top_location}** has the highest "
-            f"number of student reports."
+            f"number of reports."
         )
 
-
-        # -----------------------------------------
-        # TIME PATTERN
-        # -----------------------------------------
 
         st.subheader(
             "⏰ Peak Reporting Time"
@@ -626,13 +735,10 @@ elif page == "💡 Insights":
         )
 
 
-        # -----------------------------------------
-        # SEVERITY ALERT
-        # -----------------------------------------
-
         st.subheader(
             "⚠️ Severity Alert"
         )
+
 
         if high_severity > 0:
 
@@ -655,6 +761,7 @@ elif page == "💡 Insights":
         st.subheader(
             "💡 Recommended Action"
         )
+
 
         recommendations = {
 
@@ -683,6 +790,7 @@ elif page == "💡 Insights":
                 "Investigate the most frequently reported problem."
         }
 
+
         st.info(
             recommendations.get(
                 top_problem,
@@ -692,9 +800,8 @@ elif page == "💡 Insights":
 
 
         st.caption(
-            "These insights are generated from the "
-            "reports currently available in the "
-            "Campus Reports Google Sheet."
+            "Insights are generated from the "
+            "currently available reports."
         )
 
 
