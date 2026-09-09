@@ -159,6 +159,87 @@ section[data-testid="stSidebar"] * {
     margin-top: 5px;
 }
 
+.health-card {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    padding: 25px;
+    border-radius: 20px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 7px 25px rgba(15, 23, 42, 0.06);
+    text-align: center;
+}
+
+.health-score {
+    font-size: 52px;
+    font-weight: 800;
+    color: #111827;
+    line-height: 1;
+}
+
+.health-label {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    margin-bottom: 12px;
+}
+
+.health-message {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+.top-issue {
+    background: linear-gradient(135deg, #ffffff, #f8fafc);
+    padding: 28px;
+    border-radius: 20px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 7px 25px rgba(15, 23, 42, 0.06);
+}
+
+.top-issue-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+}
+
+.top-issue-name {
+    font-size: 30px;
+    font-weight: 800;
+    color: #111827;
+    margin-top: 8px;
+}
+
+.top-issue-info {
+    color: #64748b;
+    margin-top: 8px;
+    font-size: 14px;
+}
+
+.recommendation {
+    background: white;
+    padding: 22px;
+    border-radius: 18px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+    margin-bottom: 12px;
+}
+
+.recommendation-title {
+    font-weight: 800;
+    color: #111827;
+    font-size: 16px;
+}
+
+.recommendation-text {
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 7px;
+}
+
 .priority-card {
     background: white;
     padding: 20px;
@@ -354,6 +435,68 @@ def calculate_priority(data):
     )
 
 
+def campus_health_score(data):
+
+    if data.empty:
+        return 100, "No reports available yet."
+
+    priority = calculate_priority(data)
+
+    if priority.empty:
+        return 100, "No reports available yet."
+
+    average_severity = data["Severity"].mean()
+
+    issue_count = len(data)
+
+    high_priority_count = len(
+        priority[
+            priority["Priority Score"] >= 11
+        ]
+    )
+
+    severity_part = (
+        average_severity / 5
+    ) * 60
+
+    issue_part = min(
+        issue_count * 2,
+        20
+    )
+
+    priority_part = min(
+        high_priority_count * 5,
+        20
+    )
+
+    problem_pressure = (
+        severity_part
+        + issue_part
+        + priority_part
+    )
+
+    score = round(
+        max(
+            0,
+            100 - problem_pressure
+        )
+    )
+
+    if score >= 80:
+        message = "Campus conditions look relatively healthy."
+
+    elif score >= 60:
+        message = "Campus conditions are generally okay but need monitoring."
+
+    elif score >= 40:
+        message = "Several issues need attention."
+
+    else:
+        message = "Multiple reported issues require focused attention."
+
+    return score, message
+
+
 def campus_pulse(priority_data):
 
     if priority_data.empty:
@@ -409,6 +552,65 @@ def trend_message(data):
         return "Reporting activity is currently decreasing."
 
     return "Reporting activity is currently stable."
+
+
+def get_recommendation(problem):
+
+    recommendations = {
+
+        "Wi-Fi":
+            (
+                "IT team should check network connectivity, "
+                "access points and bandwidth in the affected area."
+            ),
+
+        "Canteen":
+            (
+                "Queue management and service capacity should be "
+                "reviewed during the busiest reporting period."
+            ),
+
+        "Lab PC":
+            (
+                "Technical team should inspect slow or faulty "
+                "computers and check system performance."
+            ),
+
+        "Library":
+            (
+                "Seating availability and library resources should "
+                "be reviewed during peak usage hours."
+            ),
+
+        "Water":
+            (
+                "Facilities team should inspect water supply points "
+                "and identify recurring supply issues."
+            ),
+
+        "Electricity":
+            (
+                "Maintenance team should inspect electrical "
+                "infrastructure in the affected location."
+            ),
+
+        "Cleanliness":
+            (
+                "Cleaning frequency and maintenance schedules "
+                "should be reviewed."
+            ),
+
+        "Other":
+            (
+                "Administration should review the reported issue "
+                "and identify an appropriate solution."
+            )
+    }
+
+    return recommendations.get(
+        problem,
+        "Administration should review this issue and identify an appropriate solution."
+    )
 
 
 # ---------------- SIDEBAR ----------------
@@ -551,29 +753,103 @@ if page == "🏠 Dashboard":
         unsafe_allow_html=True
     )
 
+    # ---------------- CAMPUS HEALTH ----------------
+
+    health_score, health_message = campus_health_score(
+        filtered_df
+    )
+
+    st.markdown(
+        '<div class="section-title">🩺 Campus Health</div>',
+        unsafe_allow_html=True
+    )
+
+    health_col1, health_col2 = st.columns([1, 2])
+
+    with health_col1:
+
+        st.markdown(
+            f"""
+            <div class="health-card">
+                <div class="health-label">
+                    OVERALL CAMPUS HEALTH
+                </div>
+                <div class="health-score">
+                    {health_score}
+                    <span style="font-size:20px;color:#64748b;">
+                        /100
+                    </span>
+                </div>
+                <div class="health-message">
+                    {health_message}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with health_col2:
+
+        st.markdown(
+            f"""
+            <div class="top-issue">
+                <div class="top-issue-title">
+                    🏆 TOP CAMPUS ISSUE
+                </div>
+                <div class="top-issue-name">
+                    {priority_data.index[0]}
+                </div>
+                <div class="top-issue-info">
+                    Priority: <b>{priority_data.iloc[0]["Priority"]}</b>
+                    &nbsp; • &nbsp;
+                    Priority Score:
+                    <b>{priority_data.iloc[0]["Priority Score"]:.2f}</b>
+                    &nbsp; • &nbsp;
+                    Reports:
+                    <b>{int(priority_data.iloc[0]["Reports"])}</b>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
     # Metrics
+
+    st.markdown(
+        '<div class="section-title">📌 Campus Snapshot</div>',
+        unsafe_allow_html=True
+    )
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
+
         st.markdown(
             f"""
             <div class="metric-card">
                 <div class="metric-label">Total Reports</div>
-                <div class="metric-value">{len(filtered_df)}</div>
+                <div class="metric-value">
+                    {len(filtered_df)}
+                </div>
             </div>
             """,
             unsafe_allow_html=True
         )
 
     with col2:
+
         avg = filtered_df["Severity"].mean()
 
         st.markdown(
             f"""
             <div class="metric-card">
                 <div class="metric-label">Average Severity</div>
-                <div class="metric-value">{avg:.1f}<span style="font-size:15px;color:#64748b;"> / 5</span></div>
+                <div class="metric-value">
+                    {avg:.1f}
+                    <span style="font-size:15px;color:#64748b;">
+                        / 5
+                    </span>
+                </div>
             </div>
             """,
             unsafe_allow_html=True
@@ -610,7 +886,9 @@ if page == "🏠 Dashboard":
             f"""
             <div class="metric-card">
                 <div class="metric-label">Affected Areas</div>
-                <div class="metric-value">{location_count}</div>
+                <div class="metric-value">
+                    {location_count}
+                </div>
             </div>
             """,
             unsafe_allow_html=True
@@ -628,10 +906,13 @@ if page == "🏠 Dashboard":
     c1, c2, c3 = st.columns(3)
 
     with c1:
+
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Highest Priority</div>
+                <div class="insight-label">
+                    Highest Priority
+                </div>
                 <div class="insight-value">
                     {priority_data.index[0]}
                 </div>
@@ -644,10 +925,13 @@ if page == "🏠 Dashboard":
         )
 
     with c2:
+
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Priority Score</div>
+                <div class="insight-label">
+                    Priority Score
+                </div>
                 <div class="insight-value">
                     {top["Priority Score"]:.2f}
                 </div>
@@ -660,10 +944,13 @@ if page == "🏠 Dashboard":
         )
 
     with c3:
+
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Reports</div>
+                <div class="insight-label">
+                    Reports
+                </div>
                 <div class="insight-value">
                     {int(top["Reports"])}
                 </div>
@@ -755,10 +1042,15 @@ if page == "🏠 Dashboard":
             st.markdown(
                 f"""
                 <div class="hotspot" style="margin-bottom:10px;">
-                    <div class="hotspot-title">📍 {location}</div>
-                    <div class="hotspot-number">{count}</div>
+                    <div class="hotspot-title">
+                        📍 {location}
+                    </div>
+                    <div class="hotspot-number">
+                        {count}
+                    </div>
                     <div class="hotspot-small">
-                        reports • Avg severity {avg_location:.1f}/5
+                        reports • Avg severity
+                        {avg_location:.1f}/5
                     </div>
                 </div>
                 """,
@@ -775,6 +1067,33 @@ if page == "🏠 Dashboard":
         )
 
         st.bar_chart(time_counts)
+
+    # ---------------- SMART RECOMMENDATION ----------------
+
+    st.markdown(
+        '<div class="section-title">💡 Smart Recommendation</div>',
+        unsafe_allow_html=True
+    )
+
+    top_problem = priority_data.index[0]
+
+    recommendation = get_recommendation(
+        top_problem
+    )
+
+    st.markdown(
+        f"""
+        <div class="recommendation">
+            <div class="recommendation-title">
+                Focus Area: {top_problem}
+            </div>
+            <div class="recommendation-text">
+                {recommendation}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
     # Trend
 
@@ -843,6 +1162,64 @@ elif page == "📊 Analysis":
 
     priority = calculate_priority(filtered_df)
 
+    # Health Score
+
+    health_score, health_message = campus_health_score(
+        filtered_df
+    )
+
+    st.markdown(
+        '<div class="section-title">🩺 Campus Health Score</div>',
+        unsafe_allow_html=True
+    )
+
+    c1, c2 = st.columns([1, 2])
+
+    with c1:
+
+        st.markdown(
+            f"""
+            <div class="health-card">
+                <div class="health-label">
+                    CAMPUS HEALTH
+                </div>
+                <div class="health-score">
+                    {health_score}/100
+                </div>
+                <div class="health-message">
+                    {health_message}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with c2:
+
+        highest = priority.iloc[0]
+
+        st.markdown(
+            f"""
+            <div class="top-issue">
+                <div class="top-issue-title">
+                    🏆 HIGHEST PRIORITY ISSUE
+                </div>
+                <div class="top-issue-name">
+                    {priority.index[0]}
+                </div>
+                <div class="top-issue-info">
+                    Score:
+                    <b>{highest["Priority Score"]:.2f}</b>
+                    &nbsp; • &nbsp;
+                    {highest["Priority"]}
+                    &nbsp; • &nbsp;
+                    {int(highest["Reports"])} reports
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
     st.markdown(
         '<div class="section-title">🚨 Smart Priority Analysis</div>',
         unsafe_allow_html=True
@@ -858,6 +1235,31 @@ elif page == "📊 Analysis":
     st.success(
         f"Highest priority problem: "
         f"**{priority.index[0]}** — {highest['Priority']}"
+    )
+
+    # Recommendation
+
+    st.markdown(
+        '<div class="section-title">💡 Recommended Action</div>',
+        unsafe_allow_html=True
+    )
+
+    recommendation = get_recommendation(
+        priority.index[0]
+    )
+
+    st.markdown(
+        f"""
+        <div class="recommendation">
+            <div class="recommendation-title">
+                Suggested Action
+            </div>
+            <div class="recommendation-text">
+                {recommendation}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
     # Problem Location
@@ -1159,6 +1561,10 @@ elif page == "💡 Insights":
         .mean()
     )
 
+    health_score, health_message = campus_health_score(
+        filtered_df
+    )
+
     # Main insight cards
 
     col1, col2, col3, col4 = st.columns(4)
@@ -1168,8 +1574,12 @@ elif page == "💡 Insights":
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Priority Issue</div>
-                <div class="insight-value">{top_problem}</div>
+                <div class="insight-label">
+                    Priority Issue
+                </div>
+                <div class="insight-value">
+                    {top_problem}
+                </div>
                 <div class="insight-text">
                     {top_row["Priority"]}
                 </div>
@@ -1183,8 +1593,12 @@ elif page == "💡 Insights":
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Most Affected Area</div>
-                <div class="insight-value">{top_location}</div>
+                <div class="insight-label">
+                    Most Affected Area
+                </div>
+                <div class="insight-value">
+                    {top_location}
+                </div>
                 <div class="insight-text">
                     Highest number of reports
                 </div>
@@ -1198,8 +1612,12 @@ elif page == "💡 Insights":
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Peak Reporting Time</div>
-                <div class="insight-value">{peak_time}</div>
+                <div class="insight-label">
+                    Peak Reporting Time
+                </div>
+                <div class="insight-value">
+                    {peak_time}
+                </div>
                 <div class="insight-text">
                     Most reports received
                 </div>
@@ -1213,10 +1631,14 @@ elif page == "💡 Insights":
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-label">Average Severity</div>
-                <div class="insight-value">{avg_severity:.1f}/5</div>
+                <div class="insight-label">
+                    Campus Health
+                </div>
+                <div class="insight-value">
+                    {health_score}/100
+                </div>
                 <div class="insight-text">
-                    Across current reports
+                    {health_message}
                 </div>
             </div>
             """,
@@ -1233,7 +1655,9 @@ elif page == "💡 Insights":
     st.markdown(
         f"""
         <div class="insight-card">
-            <div class="insight-label">CURRENT PRIORITY</div>
+            <div class="insight-label">
+                CURRENT PRIORITY
+            </div>
             <div class="insight-value">
                 {top_problem}
             </div>
@@ -1251,44 +1675,41 @@ elif page == "💡 Insights":
     # Recommendation
 
     st.markdown(
-        '<div class="section-title">💡 Recommended Action</div>',
+        '<div class="section-title">💡 Smart Recommendation</div>',
         unsafe_allow_html=True
     )
 
-    recommendations = {
-
-        "Wi-Fi":
-            "IT team should check network connectivity, access points and bandwidth in the affected area.",
-
-        "Canteen":
-            "Queue management and service capacity should be reviewed during the busiest reporting period.",
-
-        "Lab PC":
-            "Technical team should inspect slow or faulty computers and check system performance.",
-
-        "Library":
-            "Seating availability and library resources should be reviewed during peak usage hours.",
-
-        "Water":
-            "Facilities team should inspect water supply points and identify recurring supply issues.",
-
-        "Electricity":
-            "Maintenance team should inspect electrical infrastructure in the affected location.",
-
-        "Cleanliness":
-            "Cleaning frequency and maintenance schedules should be reviewed."
-    }
-
-    recommendation = recommendations.get(
-        top_problem,
-        "Administration should review this issue and identify an appropriate solution."
+    recommendation = get_recommendation(
+        top_problem
     )
 
     st.markdown(
         f"""
-        <div class="tip-box">
-            <b>Suggested Action</b><br>
-            {recommendation}
+        <div class="recommendation">
+            <div class="recommendation-title">
+                Recommended Action for {top_problem}
+            </div>
+            <div class="recommendation-text">
+                {recommendation}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Additional recommendation
+
+    st.markdown(
+        f"""
+        <div class="recommendation">
+            <div class="recommendation-title">
+                📍 Focus on {top_location}
+            </div>
+            <div class="recommendation-text">
+                This location currently has the highest number of
+                reported problems. It may be useful to investigate
+                recurring issues in this area first.
+            </div>
         </div>
         """,
         unsafe_allow_html=True
@@ -1321,8 +1742,10 @@ elif page == "💡 Insights":
             <br>
             <b>Severity</b> — how serious the reported problem is.
             <br><br>
-            These factors are combined into an analytical priority score.
-            This system is <b>not an ML prediction model</b>.
+            The Campus Health Score is an analytical indicator
+            based on reported issue pressure and severity.
+            <br><br>
+            These calculations are <b>not an ML prediction model</b>.
         </div>
         """,
         unsafe_allow_html=True
