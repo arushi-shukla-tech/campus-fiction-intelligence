@@ -14,19 +14,25 @@ st.markdown("""
 .main-title {
     font-size: 42px;
     font-weight: 700;
-    margin-bottom: 5px;
 }
 
 .subtitle {
     font-size: 18px;
     color: #666;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
 }
 
 .section-title {
     font-size: 25px;
     font-weight: 600;
     margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+div[data-testid="stMetric"] {
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -49,7 +55,7 @@ client = gspread.authorize(credentials)
 sheet = client.open("Campus Reports").sheet1
 
 
-# Load reports from Google Sheet
+# Load data
 
 records = sheet.get_all_records()
 
@@ -65,17 +71,20 @@ df = pd.DataFrame(
 )
 
 if not df.empty:
+
     df["Severity"] = pd.to_numeric(
         df["Severity"],
         errors="coerce"
     )
 
-    df = df.dropna(subset=["Problem", "Location", "Severity"])
+    df = df.dropna(
+        subset=["Problem", "Location", "Severity"]
+    )
 
     df["Severity"] = df["Severity"].astype(int)
 
 
-# Page heading
+# Title
 
 st.markdown(
     '<div class="main-title">Campus Problem Analysis</div>',
@@ -90,73 +99,113 @@ st.markdown(
 st.divider()
 
 
-# Dashboard
-
-c1, c2, c3, c4 = st.columns(4)
-
-c1.metric("Total Reports", len(df))
-
-if not df.empty:
-
-    c2.metric(
-        "High Severity",
-        len(df[df["Severity"] >= 4])
-    )
-
-    c3.metric(
-        "Top Problem",
-        df["Problem"].value_counts().idxmax()
-    )
-
-    c4.metric(
-        "Top Location",
-        df["Location"].value_counts().idxmax()
-    )
-
-else:
-
-    c2.metric("High Severity", 0)
-    c3.metric("Top Problem", "-")
-    c4.metric("Top Location", "-")
-
-
-# Explore reports
+# Dashboard summary
 
 st.markdown(
-    '<div class="section-title">Explore Reports</div>',
+    '<div class="section-title">Dashboard Overview</div>',
     unsafe_allow_html=True
 )
 
+c1, c2, c3, c4 = st.columns(4)
+
 if not df.empty:
 
-    f1, f2 = st.columns(2)
+    total_reports = len(df)
+
+    high_severity = len(
+        df[df["Severity"] >= 4]
+    )
+
+    top_problem = df[
+        "Problem"
+    ].value_counts().idxmax()
+
+    top_location = df[
+        "Location"
+    ].value_counts().idxmax()
+
+else:
+
+    total_reports = 0
+    high_severity = 0
+    top_problem = "-"
+    top_location = "-"
+
+c1.metric(
+    "Total Reports",
+    total_reports
+)
+
+c2.metric(
+    "High Severity",
+    high_severity
+)
+
+c3.metric(
+    "Top Problem",
+    top_problem
+)
+
+c4.metric(
+    "Top Location",
+    top_location
+)
+
+
+# Filters
+
+if not df.empty:
+
+    st.markdown(
+        '<div class="section-title">Explore Reports</div>',
+        unsafe_allow_html=True
+    )
+
+    f1, f2, f3 = st.columns(3)
 
     with f1:
+
         selected_problem = st.selectbox(
-            "Filter by Problem",
+            "Problem",
             ["All"] + sorted(
                 df["Problem"].unique().tolist()
             )
         )
 
     with f2:
+
         selected_location = st.selectbox(
-            "Filter by Location",
+            "Location",
             ["All"] + sorted(
                 df["Location"].unique().tolist()
             )
         )
 
+    with f3:
+
+        selected_severity = st.selectbox(
+            "Severity",
+            ["All", 1, 2, 3, 4, 5]
+        )
+
     filtered_df = df.copy()
 
     if selected_problem != "All":
+
         filtered_df = filtered_df[
             filtered_df["Problem"] == selected_problem
         ]
 
     if selected_location != "All":
+
         filtered_df = filtered_df[
             filtered_df["Location"] == selected_location
+        ]
+
+    if selected_severity != "All":
+
+        filtered_df = filtered_df[
+            filtered_df["Severity"] == selected_severity
         ]
 
     st.dataframe(
@@ -165,19 +214,63 @@ if not df.empty:
         hide_index=True
     )
 
-else:
 
-    st.info("No reports available yet.")
-
-
-# Problem Analysis
-
-st.markdown(
-    '<div class="section-title">Problem Analysis</div>',
-    unsafe_allow_html=True
-)
+# Charts
 
 if not df.empty:
+
+    st.markdown(
+        '<div class="section-title">Problem Overview</div>',
+        unsafe_allow_html=True
+    )
+
+    chart1, chart2 = st.columns(2)
+
+    with chart1:
+
+        st.write("Reports by Problem")
+
+        problem_count = (
+            df["Problem"]
+            .value_counts()
+        )
+
+        st.bar_chart(problem_count)
+
+    with chart2:
+
+        st.write("Reports by Location")
+
+        location_count = (
+            df["Location"]
+            .value_counts()
+        )
+
+        st.bar_chart(location_count)
+
+
+    # Severity
+
+    st.markdown(
+        '<div class="section-title">Severity Analysis</div>',
+        unsafe_allow_html=True
+    )
+
+    severity_count = (
+        df["Severity"]
+        .value_counts()
+        .sort_index()
+    )
+
+    st.bar_chart(severity_count)
+
+
+    # Priority analysis
+
+    st.markdown(
+        '<div class="section-title">Priority Analysis</div>',
+        unsafe_allow_html=True
+    )
 
     result = []
 
@@ -188,15 +281,20 @@ if not df.empty:
         ]["Severity"]
 
         reports = len(values)
+
         average = values.mean()
+
         priority = reports * average
 
         if priority >= 12:
             level = "Critical"
+
         elif priority >= 8:
             level = "High"
+
         elif priority >= 5:
             level = "Medium"
+
         else:
             level = "Low"
 
@@ -230,133 +328,74 @@ if not df.empty:
         hide_index=True
     )
 
-else:
 
-    st.info("Analysis will appear after reports are submitted.")
-
-
-# Problem-wise reports
-
-if not df.empty:
-
-    st.markdown(
-        '<div class="section-title">Problem-wise Reports</div>',
-        unsafe_allow_html=True
-    )
-
-    st.bar_chart(
-        df["Problem"].value_counts()
-    )
-
-
-# Severity analysis
-
-if not df.empty:
-
-    st.markdown(
-        '<div class="section-title">Severity Analysis</div>',
-        unsafe_allow_html=True
-    )
-
-    st.bar_chart(
-        df["Severity"].value_counts().sort_index()
-    )
-
-
-# Location analysis
-
-if not df.empty:
-
-    st.markdown(
-        '<div class="section-title">Location-wise Reports</div>',
-        unsafe_allow_html=True
-    )
-
-    st.bar_chart(
-        df["Location"].value_counts()
-    )
-
-
-# Problem patterns
-
-if not df.empty:
-
-    st.markdown(
-        '<div class="section-title">Problem Patterns</div>',
-        unsafe_allow_html=True
-    )
-
-    patterns = (
-        df.groupby(["Problem", "Location"])
-        .size()
-        .reset_index(name="Reports")
-        .sort_values(
-            "Reports",
-            ascending=False
-        )
-    )
-
-    st.dataframe(
-        patterns,
-        use_container_width=True,
-        hide_index=True
-    )
-
-
-# Time analysis
-
-if not df.empty:
+    # Time analysis
 
     st.markdown(
         '<div class="section-title">Time Analysis</div>',
         unsafe_allow_html=True
     )
 
-    time_count = df["Time"].value_counts()
+    time_count = (
+        df["Time"]
+        .value_counts()
+    )
 
     st.bar_chart(time_count)
 
     peak_time = time_count.idxmax()
 
     st.info(
-        f"Most reports are being received around {peak_time}."
+        f"Peak reporting time: {peak_time}"
     )
 
 
-# Smart insight
-
-if not df.empty:
-
-    top_problem = analysis.iloc[0]["Problem"]
-
-    top_location = df[
-        df["Problem"] == top_problem
-    ]["Location"].value_counts().idxmax()
+    # Smart insight
 
     st.markdown(
         '<div class="section-title">Smart Insight</div>',
         unsafe_allow_html=True
     )
 
+    highest = analysis.iloc[0]
+
+    highest_problem = highest["Problem"]
+
+    highest_location = df[
+        df["Problem"] == highest_problem
+    ]["Location"].value_counts().idxmax()
+
     st.success(
-        f"{top_problem} is the highest-priority problem, "
-        f"with the most reports coming from {top_location}."
+        f"{highest_problem} currently has the highest "
+        f"priority score. Most reports for this problem "
+        f"come from {highest_location}."
     )
 
 
-# Recommendation
+    # Recommendation
 
-recommendations = {
-    "Wi-Fi": "Wi-Fi should be checked in the areas where reports are frequent.",
-    "Canteen Queue": "Queue management should be improved during busy hours.",
-    "Slow Computer": "Lab computers should be checked and maintained regularly.",
-    "No Seats": "Library seating should be increased during peak hours.",
-    "Water Problem": "Drinking water facilities should be checked regularly.",
-    "Electricity": "Electrical equipment and power usage should be checked.",
-    "Noise": "The source of noise should be identified and managed."
-}
+    recommendations = {
+        "Wi-Fi":
+        "Wi-Fi should be checked in areas where reports are frequent.",
 
-if not df.empty:
+        "Canteen Queue":
+        "Queue management should be improved during busy hours.",
+
+        "Slow Computer":
+        "Lab computers should be checked and maintained regularly.",
+
+        "No Seats":
+        "Library seating should be increased during peak hours.",
+
+        "Water Problem":
+        "Drinking water facilities should be checked regularly.",
+
+        "Electricity":
+        "Electrical equipment and power usage should be checked.",
+
+        "Noise":
+        "The source of noise should be identified and managed."
+    }
 
     st.markdown(
         '<div class="section-title">Recommendation</div>',
@@ -365,60 +404,55 @@ if not df.empty:
 
     st.info(
         recommendations.get(
-            top_problem,
+            highest_problem,
             "The highest priority problem needs attention."
         )
     )
 
 
-# Problem prediction
-
-if not df.empty:
+    # Prediction
 
     st.markdown(
         '<div class="section-title">Problem Prediction</div>',
         unsafe_allow_html=True
     )
 
-    prediction = analysis.iloc[0]
-
     st.write(
         f"Based on the current reports, "
-        f"{prediction['Problem']} is most likely to need attention next."
+        f"{highest_problem} is most likely to need "
+        f"attention next."
     )
 
     st.write(
         f"Current priority score: "
-        f"{prediction['Priority Score']}"
+        f"{highest['Priority Score']}"
     )
 
     st.caption(
-        "This is a priority-based prediction using the current "
-        "student reports. More real college data can improve "
-        "future predictions."
+        "This is a priority-based prediction using "
+        "the current student reports. More real college "
+        "data can improve future predictions."
     )
 
 
-# Download reports
-
-if not df.empty:
+    # Download
 
     st.markdown(
-        '<div class="section-title">Download Analysis</div>',
+        '<div class="section-title">Download Reports</div>',
         unsafe_allow_html=True
     )
 
     csv_data = df.to_csv(index=False)
 
     st.download_button(
-        "Download Reports",
+        "Download CSV",
         csv_data,
         "campus_reports.csv",
         "text/csv"
     )
 
 
-# Report a problem
+# Report form
 
 st.markdown(
     '<div class="section-title">Report a Problem</div>',
@@ -430,7 +464,7 @@ p1, p2 = st.columns(2)
 with p1:
 
     problem = st.selectbox(
-        "Problem",
+        "Select Problem",
         [
             "Wi-Fi",
             "Canteen Queue",
@@ -446,7 +480,7 @@ with p1:
 with p2:
 
     location = st.selectbox(
-        "Location",
+        "Select Location",
         [
             "Block A",
             "Block B",
