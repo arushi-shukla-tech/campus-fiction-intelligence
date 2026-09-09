@@ -9,53 +9,70 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------- STYLE ----------
+# ---------- UI STYLE ----------
 
 st.markdown("""
 <style>
 
+.block-container {
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+    max-width: 1200px;
+}
+
 .main-title {
-    font-size: 42px;
-    font-weight: 700;
-    margin-bottom: 4px;
+    font-size: 44px;
+    font-weight: 750;
+    margin-bottom: 5px;
 }
 
 .subtitle {
     font-size: 17px;
-    color: #666;
-    margin-bottom: 20px;
-}
-
-.dashboard-card {
-    padding: 20px;
-    border-radius: 14px;
-    border: 1px solid #e5e5e5;
-    background-color: #ffffff;
-}
-
-.card-title {
-    font-size: 14px;
-    color: #666;
-}
-
-.card-value {
-    font-size: 27px;
-    font-weight: 700;
-    margin-top: 5px;
+    color: #6b7280;
+    margin-bottom: 25px;
 }
 
 .section-title {
-    font-size: 25px;
-    font-weight: 650;
-    margin-top: 32px;
+    font-size: 26px;
+    font-weight: 700;
+    margin-top: 35px;
     margin-bottom: 15px;
 }
 
-.insight-box {
-    padding: 18px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    margin-top: 10px;
+.dashboard-card {
+    padding: 22px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    min-height: 115px;
+}
+
+.card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+}
+
+.card-value {
+    font-size: 28px;
+    font-weight: 750;
+    margin-top: 8px;
+}
+
+.report-box {
+    padding: 25px;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.footer {
+    text-align: center;
+    color: #777;
+    margin-top: 45px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
 }
 
 </style>
@@ -117,7 +134,7 @@ st.markdown(
 
 st.markdown(
     '<div class="subtitle">'
-    'Analysis of common college problems using student reports'
+    'A data-driven view of common problems reported by students'
     '</div>',
     unsafe_allow_html=True
 )
@@ -125,7 +142,7 @@ st.markdown(
 st.divider()
 
 
-# ---------- DASHBOARD ----------
+# ---------- OVERVIEW ----------
 
 st.markdown(
     '<div class="section-title">📊 Dashboard Overview</div>',
@@ -163,44 +180,48 @@ else:
 c1, c2, c3, c4 = st.columns(4)
 
 with c1:
+
     st.markdown(
         f"""
         <div class="dashboard-card">
-        <div class="card-title">TOTAL REPORTS</div>
-        <div class="card-value">{total_reports}</div>
+            <div class="card-title">Total Reports</div>
+            <div class="card-value">{total_reports}</div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
 with c2:
+
     st.markdown(
         f"""
         <div class="dashboard-card">
-        <div class="card-title">HIGH SEVERITY</div>
-        <div class="card-value">{high_severity}</div>
+            <div class="card-title">High Severity</div>
+            <div class="card-value">{high_severity}</div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
 with c3:
+
     st.markdown(
         f"""
         <div class="dashboard-card">
-        <div class="card-title">TOP PROBLEM</div>
-        <div class="card-value">{top_problem}</div>
+            <div class="card-title">Top Problem</div>
+            <div class="card-value">{top_problem}</div>
         </div>
         """,
         unsafe_allow_html=True
     )
 
 with c4:
+
     st.markdown(
         f"""
         <div class="dashboard-card">
-        <div class="card-title">TOP LOCATION</div>
-        <div class="card-value">{top_location}</div>
+            <div class="card-title">Top Location</div>
+            <div class="card-value">{top_location}</div>
         </div>
         """,
         unsafe_allow_html=True
@@ -263,8 +284,8 @@ if not df.empty:
             filtered_df["Severity"] == selected_severity
         ]
 
-    st.write(
-        f"Showing **{len(filtered_df)}** report(s)"
+    st.caption(
+        f"Showing {len(filtered_df)} report(s)"
     )
 
     st.dataframe(
@@ -277,8 +298,6 @@ if not df.empty:
 # ---------- ANALYSIS ----------
 
 if not df.empty:
-
-    # Priority calculation
 
     result = []
 
@@ -347,7 +366,7 @@ if not df.empty:
     )
 
 
-    # ---------- TOP PRIORITY ----------
+    # ---------- CURRENT PRIORITY ----------
 
     highest = analysis.iloc[0]
 
@@ -366,17 +385,17 @@ if not df.empty:
     )
 
     st.success(
-        f"{highest_problem} currently has the highest "
-        f"priority score of {highest['Priority Score']}. "
-        f"Most reports for this problem come from "
-        f"{highest_location}."
+        f"{highest_problem} is currently the highest-priority "
+        f"problem with a priority score of "
+        f"{highest['Priority Score']}. "
+        f"Most reports come from {highest_location}."
     )
 
 
     # ---------- CHARTS ----------
 
     st.markdown(
-        '<div class="section-title">📈 Problem Trends</div>',
+        '<div class="section-title">📈 Problem Overview</div>',
         unsafe_allow_html=True
     )
 
@@ -430,7 +449,7 @@ if not df.empty:
     # ---------- TIME ----------
 
     st.markdown(
-        '<div class="section-title">⏰ Peak Reporting Time</div>',
+        '<div class="section-title">⏰ Reporting Time</div>',
         unsafe_allow_html=True
     )
 
@@ -446,7 +465,7 @@ if not df.empty:
     peak_time = time_count.idxmax()
 
     st.info(
-        f"Most reports are received around **{peak_time}**."
+        f"Peak reporting time: {peak_time}"
     )
 
 
@@ -512,7 +531,7 @@ if not df.empty:
     st.info(
         recommendations.get(
             highest_problem,
-            "The highest priority problem needs attention."
+            "The highest-priority problem needs attention."
         )
     )
 
@@ -559,7 +578,12 @@ if not df.empty:
 # ---------- REPORT FORM ----------
 
 st.markdown(
-    '<div class="section-title">📝 Report a Problem</div>',
+    '<div class="section-title">📝 Report a Campus Problem</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="report-box">',
     unsafe_allow_html=True
 )
 
@@ -623,7 +647,8 @@ severity = st.slider(
 
 
 description = st.text_area(
-    "Describe the problem"
+    "Describe the problem",
+    placeholder="Example: Wi-Fi becomes very slow during lunch time."
 )
 
 
@@ -653,3 +678,18 @@ if st.button(
         st.warning(
             "Please describe the problem."
         )
+
+st.markdown(
+    '</div>',
+    unsafe_allow_html=True
+)
+
+
+# ---------- FOOTER ----------
+
+st.markdown(
+    '<div class="footer">'
+    'Campus Problem Analysis • Student Data Dashboard'
+    '</div>',
+    unsafe_allow_html=True
+)
