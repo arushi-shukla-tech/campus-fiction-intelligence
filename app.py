@@ -9,76 +9,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------- UI STYLE ----------
-
-st.markdown("""
-<style>
-
-.block-container {
-    padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1200px;
-}
-
-.main-title {
-    font-size: 44px;
-    font-weight: 750;
-    margin-bottom: 5px;
-}
-
-.subtitle {
-    font-size: 17px;
-    color: #6b7280;
-    margin-bottom: 25px;
-}
-
-.section-title {
-    font-size: 26px;
-    font-weight: 700;
-    margin-top: 35px;
-    margin-bottom: 15px;
-}
-
-.dashboard-card {
-    padding: 22px;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
-    min-height: 115px;
-}
-
-.card-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #6b7280;
-    text-transform: uppercase;
-}
-
-.card-value {
-    font-size: 28px;
-    font-weight: 750;
-    margin-top: 8px;
-}
-
-.report-box {
-    padding: 25px;
-    border-radius: 16px;
-    border: 1px solid #e5e7eb;
-    background: #fafafa;
-}
-
-.footer {
-    text-align: center;
-    color: #777;
-    margin-top: 45px;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
-
-</style>
-""", unsafe_allow_html=True)
-
-
 # ---------- GOOGLE SHEETS ----------
 
 scopes = [
@@ -92,7 +22,6 @@ credentials = Credentials.from_service_account_info(
 )
 
 client = gspread.authorize(credentials)
-
 sheet = client.open("Campus Reports").sheet1
 
 
@@ -125,564 +54,638 @@ if not df.empty:
     df["Severity"] = df["Severity"].astype(int)
 
 
-# ---------- HEADER ----------
+# ---------- STYLE ----------
 
-st.markdown(
-    '<div class="main-title">Campus Problem Analysis</div>',
-    unsafe_allow_html=True
+st.markdown("""
+<style>
+
+.block-container {
+    padding-top: 2rem;
+    max-width: 1200px;
+}
+
+.hero {
+    padding: 30px;
+    border-radius: 18px;
+    background: linear-gradient(
+        135deg,
+        #eef2ff,
+        #f8fafc
+    );
+    border: 1px solid #e5e7eb;
+    margin-bottom: 25px;
+}
+
+.hero-title {
+    font-size: 42px;
+    font-weight: 750;
+    margin-bottom: 8px;
+}
+
+.hero-text {
+    font-size: 17px;
+    color: #64748b;
+}
+
+.stat-card {
+    padding: 22px;
+    border-radius: 15px;
+    border: 1px solid #e5e7eb;
+    background: white;
+    min-height: 115px;
+}
+
+.stat-label {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.stat-number {
+    font-size: 29px;
+    font-weight: 750;
+    margin-top: 8px;
+}
+
+.section-title {
+    font-size: 25px;
+    font-weight: 700;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+.info-card {
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+}
+
+.footer {
+    text-align: center;
+    color: #64748b;
+    padding: 30px 0 10px;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---------- SIDEBAR ----------
+
+st.sidebar.title("📊 Campus Analysis")
+
+st.sidebar.caption(
+    "Student Problem Monitoring System"
 )
 
-st.markdown(
-    '<div class="subtitle">'
-    'A data-driven view of common problems reported by students'
-    '</div>',
-    unsafe_allow_html=True
+page = st.sidebar.radio(
+    "Navigation",
+    [
+        "🏠 Dashboard",
+        "📊 Analysis",
+        "📝 Report Problem",
+        "💡 Insights"
+    ]
 )
 
-st.divider()
+st.sidebar.divider()
 
-
-# ---------- OVERVIEW ----------
-
-st.markdown(
-    '<div class="section-title">📊 Dashboard Overview</div>',
-    unsafe_allow_html=True
+st.sidebar.caption(
+    "Data source: Campus Reports"
 )
 
-if not df.empty:
 
-    total_reports = len(df)
+# ---------- DASHBOARD ----------
 
-    high_severity = len(
-        df[df["Severity"] >= 4]
-    )
+if page == "🏠 Dashboard":
 
-    top_problem = (
-        df["Problem"]
-        .value_counts()
-        .idxmax()
-    )
-
-    top_location = (
-        df["Location"]
-        .value_counts()
-        .idxmax()
-    )
-
-else:
-
-    total_reports = 0
-    high_severity = 0
-    top_problem = "-"
-    top_location = "-"
-
-
-c1, c2, c3, c4 = st.columns(4)
-
-with c1:
-
-    st.markdown(
-        f"""
-        <div class="dashboard-card">
-            <div class="card-title">Total Reports</div>
-            <div class="card-value">{total_reports}</div>
+    st.markdown("""
+    <div class="hero">
+        <div class="hero-title">
+            Campus Problem Analysis
         </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-with c2:
-
-    st.markdown(
-        f"""
-        <div class="dashboard-card">
-            <div class="card-title">High Severity</div>
-            <div class="card-value">{high_severity}</div>
+        <div class="hero-text">
+            A data-driven dashboard for understanding
+            common problems reported by students.
         </div>
-        """,
-        unsafe_allow_html=True
-    )
+    </div>
+    """, unsafe_allow_html=True)
 
-with c3:
+    if not df.empty:
 
-    st.markdown(
-        f"""
-        <div class="dashboard-card">
-            <div class="card-title">Top Problem</div>
-            <div class="card-value">{top_problem}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        total = len(df)
 
-with c4:
+        high = len(
+            df[df["Severity"] >= 4]
+        )
 
-    st.markdown(
-        f"""
-        <div class="dashboard-card">
-            <div class="card-title">Top Location</div>
-            <div class="card-value">{top_location}</div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        top_problem = (
+            df["Problem"]
+            .value_counts()
+            .idxmax()
+        )
+
+        top_location = (
+            df["Location"]
+            .value_counts()
+            .idxmax()
+        )
+
+    else:
+
+        total = 0
+        high = 0
+        top_problem = "-"
+        top_location = "-"
 
 
-# ---------- FILTERS ----------
+    c1, c2, c3, c4 = st.columns(4)
 
-if not df.empty:
+    with c1:
+        st.markdown(
+            f"""
+            <div class="stat-card">
+                <div class="stat-label">
+                    Total Reports
+                </div>
+                <div class="stat-number">
+                    {total}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    st.markdown(
-        '<div class="section-title">🔎 Explore Reports</div>',
-        unsafe_allow_html=True
-    )
+    with c2:
+        st.markdown(
+            f"""
+            <div class="stat-card">
+                <div class="stat-label">
+                    High Severity
+                </div>
+                <div class="stat-number">
+                    {high}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    f1, f2, f3 = st.columns(3)
+    with c3:
+        st.markdown(
+            f"""
+            <div class="stat-card">
+                <div class="stat-label">
+                    Top Problem
+                </div>
+                <div class="stat-number">
+                    {top_problem}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    with f1:
+    with c4:
+        st.markdown(
+            f"""
+            <div class="stat-card">
+                <div class="stat-label">
+                    Top Location
+                </div>
+                <div class="stat-number">
+                    {top_location}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-        selected_problem = st.selectbox(
-            "Problem",
-            ["All"] + sorted(
-                df["Problem"].unique().tolist()
+
+    if not df.empty:
+
+        st.markdown(
+            '<div class="section-title">'
+            '📈 Problem Overview'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        a, b = st.columns(2)
+
+        with a:
+
+            st.write("Problems reported")
+
+            st.bar_chart(
+                df["Problem"].value_counts()
             )
-        )
 
-    with f2:
+        with b:
 
-        selected_location = st.selectbox(
-            "Location",
-            ["All"] + sorted(
-                df["Location"].unique().tolist()
+            st.write("Affected locations")
+
+            st.bar_chart(
+                df["Location"].value_counts()
             )
+
+
+        st.markdown(
+            '<div class="section-title">'
+            '⚠️ Severity Overview'
+            '</div>',
+            unsafe_allow_html=True
         )
 
-    with f3:
-
-        selected_severity = st.selectbox(
-            "Severity",
-            ["All", 1, 2, 3, 4, 5]
+        st.bar_chart(
+            df["Severity"]
+            .value_counts()
+            .sort_index()
         )
 
-    filtered_df = df.copy()
 
-    if selected_problem != "All":
+    else:
 
-        filtered_df = filtered_df[
-            filtered_df["Problem"] == selected_problem
-        ]
-
-    if selected_location != "All":
-
-        filtered_df = filtered_df[
-            filtered_df["Location"] == selected_location
-        ]
-
-    if selected_severity != "All":
-
-        filtered_df = filtered_df[
-            filtered_df["Severity"] == selected_severity
-        ]
-
-    st.caption(
-        f"Showing {len(filtered_df)} report(s)"
-    )
-
-    st.dataframe(
-        filtered_df,
-        use_container_width=True,
-        hide_index=True
-    )
+        st.info(
+            "No reports available yet. "
+            "Use 'Report Problem' to add one."
+        )
 
 
 # ---------- ANALYSIS ----------
 
-if not df.empty:
+elif page == "📊 Analysis":
 
-    result = []
+    st.title("📊 Detailed Analysis")
 
-    for problem in df["Problem"].unique():
+    if df.empty:
 
-        values = df[
-            df["Problem"] == problem
-        ]["Severity"]
+        st.info("No data available for analysis.")
 
-        reports = len(values)
+    else:
 
-        average_severity = values.mean()
+        result = []
 
-        priority_score = (
-            reports * average_severity
+        for problem in df["Problem"].unique():
+
+            values = df[
+                df["Problem"] == problem
+            ]["Severity"]
+
+            reports = len(values)
+
+            average = values.mean()
+
+            priority = reports * average
+
+            if priority >= 12:
+                level = "Critical"
+
+            elif priority >= 8:
+                level = "High"
+
+            elif priority >= 5:
+                level = "Medium"
+
+            else:
+                level = "Low"
+
+            result.append([
+                problem,
+                reports,
+                round(average, 2),
+                round(priority, 2),
+                level
+            ])
+
+        analysis = pd.DataFrame(
+            result,
+            columns=[
+                "Problem",
+                "Reports",
+                "Average Severity",
+                "Priority Score",
+                "Level"
+            ]
         )
 
-        if priority_score >= 12:
-            level = "Critical"
-
-        elif priority_score >= 8:
-            level = "High"
-
-        elif priority_score >= 5:
-            level = "Medium"
-
-        else:
-            level = "Low"
-
-        result.append([
-            problem,
-            reports,
-            round(average_severity, 2),
-            round(priority_score, 2),
-            level
-        ])
-
-    analysis = pd.DataFrame(
-        result,
-        columns=[
-            "Problem",
-            "Reports",
-            "Average Severity",
+        analysis = analysis.sort_values(
             "Priority Score",
-            "Level"
+            ascending=False
+        )
+
+        st.subheader("🚨 Priority Ranking")
+
+        st.dataframe(
+            analysis,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("🔍 Problem Patterns")
+
+        patterns = (
+            df.groupby(
+                ["Problem", "Location"]
+            )
+            .size()
+            .reset_index(
+                name="Reports"
+            )
+            .sort_values(
+                "Reports",
+                ascending=False
+            )
+        )
+
+        st.dataframe(
+            patterns,
+            use_container_width=True,
+            hide_index=True
+        )
+
+        st.subheader("⏰ Reporting Time")
+
+        time_count = df["Time"].value_counts()
+
+        st.bar_chart(time_count)
+
+        st.info(
+            f"Peak reporting time: "
+            f"{time_count.idxmax()}"
+        )
+
+        st.download_button(
+            "📥 Download Reports CSV",
+            df.to_csv(index=False),
+            "campus_reports.csv",
+            "text/csv"
+        )
+
+
+# ---------- REPORT PROBLEM ----------
+
+elif page == "📝 Report Problem":
+
+    st.title("📝 Report a Campus Problem")
+
+    st.write(
+        "Submit a problem anonymously. "
+        "Your report will be added to the analysis."
+    )
+
+    st.divider()
+
+    p1, p2 = st.columns(2)
+
+    with p1:
+
+        problem = st.selectbox(
+            "Problem",
+            [
+                "Wi-Fi",
+                "Canteen Queue",
+                "Slow Computer",
+                "No Seats",
+                "Water Problem",
+                "Electricity",
+                "Noise",
+                "Other"
+            ]
+        )
+
+    with p2:
+
+        location = st.selectbox(
+            "Location",
+            [
+                "Block A",
+                "Block B",
+                "Canteen",
+                "Library",
+                "Lab 1",
+                "Lab 2",
+                "Other"
+            ]
+        )
+
+    time = st.selectbox(
+        "Time",
+        [
+            "8:00 AM",
+            "9:00 AM",
+            "10:00 AM",
+            "11:00 AM",
+            "12:00 PM",
+            "1:00 PM",
+            "2:00 PM",
+            "3:00 PM",
+            "4:00 PM",
+            "5:00 PM"
         ]
     )
 
-    analysis = analysis.sort_values(
-        "Priority Score",
-        ascending=False
+    severity = st.slider(
+        "Severity",
+        1,
+        5,
+        3
     )
 
-
-    # ---------- PRIORITY ----------
-
-    st.markdown(
-        '<div class="section-title">🚨 Priority Analysis</div>',
-        unsafe_allow_html=True
+    description = st.text_area(
+        "Describe the problem",
+        placeholder=(
+            "Example: Wi-Fi becomes very slow "
+            "during lunch time."
+        )
     )
 
-    st.dataframe(
-        analysis,
-        use_container_width=True,
-        hide_index=True
-    )
+    if st.button(
+        "Submit Report",
+        type="primary"
+    ):
+
+        if description.strip():
+
+            sheet.append_row([
+                problem,
+                location,
+                time,
+                severity,
+                description
+            ])
+
+            st.success(
+                "Report submitted successfully!"
+            )
+
+            st.rerun()
+
+        else:
+
+            st.warning(
+                "Please describe the problem."
+            )
 
 
-    # ---------- CURRENT PRIORITY ----------
+# ---------- INSIGHTS ----------
 
-    highest = analysis.iloc[0]
+elif page == "💡 Insights":
 
-    highest_problem = highest["Problem"]
+    st.title("💡 Smart Insights")
 
-    highest_location = (
-        df[df["Problem"] == highest_problem]
-        ["Location"]
-        .value_counts()
-        .idxmax()
-    )
+    if df.empty:
 
-    st.markdown(
-        '<div class="section-title">🎯 Current Priority</div>',
-        unsafe_allow_html=True
-    )
+        st.info(
+            "Add some reports to generate insights."
+        )
 
-    st.success(
-        f"{highest_problem} is currently the highest-priority "
-        f"problem with a priority score of "
-        f"{highest['Priority Score']}. "
-        f"Most reports come from {highest_location}."
-    )
-
-
-    # ---------- CHARTS ----------
-
-    st.markdown(
-        '<div class="section-title">📈 Problem Overview</div>',
-        unsafe_allow_html=True
-    )
-
-    chart1, chart2 = st.columns(2)
-
-    with chart1:
-
-        st.write("Reports by Problem")
+    else:
 
         problem_count = (
             df["Problem"]
             .value_counts()
         )
 
-        st.bar_chart(
-            problem_count
-        )
-
-    with chart2:
-
-        st.write("Reports by Location")
-
         location_count = (
             df["Location"]
             .value_counts()
         )
 
-        st.bar_chart(
-            location_count
+        severity_count = (
+            df["Severity"]
+            .value_counts()
+        )
+
+        time_count = (
+            df["Time"]
+            .value_counts()
+        )
+
+        top_problem = problem_count.idxmax()
+        top_location = location_count.idxmax()
+        peak_time = time_count.idxmax()
+
+        high_count = len(
+            df[df["Severity"] >= 4]
+        )
+
+        st.markdown(
+            '<div class="info-card">',
+            unsafe_allow_html=True
+        )
+
+        st.subheader("Most Reported Problem")
+
+        st.write(
+            f"**{top_problem}** has the highest "
+            f"number of student reports."
+        )
+
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
         )
 
 
-    # ---------- SEVERITY ----------
-
-    st.markdown(
-        '<div class="section-title">⚠️ Severity Distribution</div>',
-        unsafe_allow_html=True
-    )
-
-    severity_count = (
-        df["Severity"]
-        .value_counts()
-        .sort_index()
-    )
-
-    st.bar_chart(
-        severity_count
-    )
-
-
-    # ---------- TIME ----------
-
-    st.markdown(
-        '<div class="section-title">⏰ Reporting Time</div>',
-        unsafe_allow_html=True
-    )
-
-    time_count = (
-        df["Time"]
-        .value_counts()
-    )
-
-    st.bar_chart(
-        time_count
-    )
-
-    peak_time = time_count.idxmax()
-
-    st.info(
-        f"Peak reporting time: {peak_time}"
-    )
-
-
-    # ---------- PATTERNS ----------
-
-    st.markdown(
-        '<div class="section-title">🔍 Problem Patterns</div>',
-        unsafe_allow_html=True
-    )
-
-    patterns = (
-        df.groupby(
-            ["Problem", "Location"]
-        )
-        .size()
-        .reset_index(
-            name="Reports"
-        )
-        .sort_values(
-            "Reports",
-            ascending=False
-        )
-    )
-
-    st.dataframe(
-        patterns,
-        use_container_width=True,
-        hide_index=True
-    )
-
-
-    # ---------- RECOMMENDATION ----------
-
-    recommendations = {
-
-        "Wi-Fi":
-        "Wi-Fi should be checked in areas where reports are frequent.",
-
-        "Canteen Queue":
-        "Queue management should be improved during busy hours.",
-
-        "Slow Computer":
-        "Lab computers should be checked and maintained regularly.",
-
-        "No Seats":
-        "Library seating should be increased during peak hours.",
-
-        "Water Problem":
-        "Drinking water facilities should be checked regularly.",
-
-        "Electricity":
-        "Electrical equipment and power usage should be checked.",
-
-        "Noise":
-        "The source of noise should be identified and managed."
-    }
-
-    st.markdown(
-        '<div class="section-title">💡 Recommendation</div>',
-        unsafe_allow_html=True
-    )
-
-    st.info(
-        recommendations.get(
-            highest_problem,
-            "The highest-priority problem needs attention."
-        )
-    )
-
-
-    # ---------- PREDICTION ----------
-
-    st.markdown(
-        '<div class="section-title">🔮 Problem Prediction</div>',
-        unsafe_allow_html=True
-    )
-
-    st.write(
-        f"Based on the current reports, "
-        f"**{highest_problem}** is most likely to "
-        f"need attention next."
-    )
-
-    st.caption(
-        "This is a priority-based prediction using "
-        "the current student reports. More real college "
-        "data can improve future predictions."
-    )
-
-
-    # ---------- DOWNLOAD ----------
-
-    st.markdown(
-        '<div class="section-title">📥 Download Data</div>',
-        unsafe_allow_html=True
-    )
-
-    csv_data = df.to_csv(
-        index=False
-    )
-
-    st.download_button(
-        "Download Reports CSV",
-        csv_data,
-        "campus_reports.csv",
-        "text/csv"
-    )
-
-
-# ---------- REPORT FORM ----------
-
-st.markdown(
-    '<div class="section-title">📝 Report a Campus Problem</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="report-box">',
-    unsafe_allow_html=True
-)
-
-p1, p2 = st.columns(2)
-
-with p1:
-
-    problem = st.selectbox(
-        "Select Problem",
-        [
-            "Wi-Fi",
-            "Canteen Queue",
-            "Slow Computer",
-            "No Seats",
-            "Water Problem",
-            "Electricity",
-            "Noise",
-            "Other"
-        ]
-    )
-
-with p2:
-
-    location = st.selectbox(
-        "Select Location",
-        [
-            "Block A",
-            "Block B",
-            "Canteen",
-            "Library",
-            "Lab 1",
-            "Lab 2",
-            "Other"
-        ]
-    )
-
-
-time = st.selectbox(
-    "Time",
-    [
-        "8:00 AM",
-        "9:00 AM",
-        "10:00 AM",
-        "11:00 AM",
-        "12:00 PM",
-        "1:00 PM",
-        "2:00 PM",
-        "3:00 PM",
-        "4:00 PM",
-        "5:00 PM"
-    ]
-)
-
-
-severity = st.slider(
-    "Severity",
-    1,
-    5,
-    3
-)
-
-
-description = st.text_area(
-    "Describe the problem",
-    placeholder="Example: Wi-Fi becomes very slow during lunch time."
-)
-
-
-if st.button(
-    "Submit Report",
-    type="primary"
-):
-
-    if description.strip():
-
-        sheet.append_row([
-            problem,
-            location,
-            time,
-            severity,
-            description
-        ])
-
-        st.success(
-            "Report submitted successfully."
+        st.markdown(
+            '<div class="info-card">',
+            unsafe_allow_html=True
         )
 
-        st.rerun()
+        st.subheader("Most Affected Location")
 
-    else:
-
-        st.warning(
-            "Please describe the problem."
+        st.write(
+            f"**{top_location}** has received "
+            f"the highest number of reports."
         )
 
-st.markdown(
-    '</div>',
-    unsafe_allow_html=True
-)
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+
+        st.markdown(
+            '<div class="info-card">',
+            unsafe_allow_html=True
+        )
+
+        st.subheader("Peak Reporting Time")
+
+        st.write(
+            f"Most reports are received around "
+            f"**{peak_time}**."
+        )
+
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+
+        st.markdown(
+            '<div class="info-card">',
+            unsafe_allow_html=True
+        )
+
+        st.subheader("Severity Alert")
+
+        st.write(
+            f"There are **{high_count}** reports "
+            f"with severity level 4 or 5."
+        )
+
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+
+        recommendations = {
+
+            "Wi-Fi":
+            "Check network performance in frequently affected areas.",
+
+            "Canteen Queue":
+            "Improve queue management during busy hours.",
+
+            "Slow Computer":
+            "Check and maintain computers in frequently affected labs.",
+
+            "No Seats":
+            "Consider increasing seating during peak hours.",
+
+            "Water Problem":
+            "Regularly inspect drinking water facilities.",
+
+            "Electricity":
+            "Inspect electrical equipment and power supply.",
+
+            "Noise":
+            "Identify and manage the main source of noise."
+        }
+
+        st.markdown(
+            '<div class="section-title">'
+            '💡 Recommended Action'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        st.info(
+            recommendations.get(
+                top_problem,
+                "The most reported problem should be investigated."
+            )
+        )
+
+        st.caption(
+            "Insights are generated from the reports currently "
+            "available in the Campus Reports Google Sheet."
+        )
 
 
 # ---------- FOOTER ----------
