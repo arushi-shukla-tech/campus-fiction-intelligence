@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---------------- GOOGLE SHEETS ----------------
+# Google Sheets connection
 
 scopes = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -25,20 +25,19 @@ client = gspread.authorize(credentials)
 sheet = client.open("Campus Reports").sheet1
 
 
-# ---------------- LOAD DATA ----------------
+# Load data
 
 records = sheet.get_all_records()
 
-df = pd.DataFrame(
-    records,
-    columns=[
-        "Problem",
-        "Location",
-        "Time",
-        "Severity",
-        "Description"
-    ]
-)
+columns = [
+    "Problem",
+    "Location",
+    "Time",
+    "Severity",
+    "Description"
+]
+
+df = pd.DataFrame(records, columns=columns)
 
 if not df.empty:
 
@@ -54,18 +53,17 @@ if not df.empty:
     df["Severity"] = df["Severity"].astype(int)
 
 
-# ---------------- STYLE ----------------
+# Styling
 
 st.markdown("""
 <style>
 
 .block-container {
     padding-top: 2rem;
-    padding-bottom: 3rem;
-    max-width: 1250px;
+    max-width: 1200px;
 }
 
-.main-title {
+.title {
     font-size: 42px;
     font-weight: 750;
     margin-bottom: 5px;
@@ -77,23 +75,22 @@ st.markdown("""
     margin-bottom: 30px;
 }
 
-.metric-card {
+.card {
     padding: 20px;
     border-radius: 16px;
     border: 1px solid #e5e7eb;
-    background: #ffffff;
-    min-height: 120px;
+    background: white;
+    min-height: 115px;
 }
 
-.metric-label {
+.label {
     font-size: 13px;
     color: #64748b;
     font-weight: 600;
-    text-transform: uppercase;
 }
 
-.metric-value {
-    font-size: 30px;
+.value {
+    font-size: 29px;
     font-weight: 750;
     margin-top: 8px;
 }
@@ -108,8 +105,8 @@ st.markdown("""
 .insight {
     padding: 18px;
     border-radius: 14px;
-    background: #f8fafc;
     border: 1px solid #e5e7eb;
+    background: #f8fafc;
     margin-bottom: 12px;
 }
 
@@ -117,7 +114,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ---------------- SIDEBAR ----------------
+# Sidebar
 
 st.sidebar.title("📊 Campus Analysis")
 
@@ -142,20 +139,20 @@ st.sidebar.caption(
 )
 
 
-# =========================================================
+# ==================================================
 # DASHBOARD
-# =========================================================
+# ==================================================
 
 if page == "🏠 Dashboard":
 
     st.markdown(
-        '<div class="main-title">Campus Problem Analysis</div>',
+        '<div class="title">Campus Problem Analysis</div>',
         unsafe_allow_html=True
     )
 
     st.markdown(
         '<div class="subtitle">'
-        'Data-driven analysis of common problems reported by students.'
+        'Understanding common campus problems through student reports.'
         '</div>',
         unsafe_allow_html=True
     )
@@ -163,18 +160,18 @@ if page == "🏠 Dashboard":
     if df.empty:
 
         st.info(
-            "No reports available yet. Add reports using Report Problem."
+            "No reports available. Add reports from Report Problem."
         )
 
     else:
 
-        total_reports = len(df)
+        total = len(df)
 
-        high_severity = len(
+        high = len(
             df[df["Severity"] >= 4]
         )
 
-        average_severity = round(
+        average = round(
             df["Severity"].mean(),
             2
         )
@@ -190,9 +187,9 @@ if page == "🏠 Dashboard":
         with c1:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-label">Total Reports</div>
-                    <div class="metric-value">{total_reports}</div>
+                <div class="card">
+                    <div class="label">TOTAL REPORTS</div>
+                    <div class="value">{total}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -201,9 +198,9 @@ if page == "🏠 Dashboard":
         with c2:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-label">High Severity</div>
-                    <div class="metric-value">{high_severity}</div>
+                <div class="card">
+                    <div class="label">HIGH SEVERITY</div>
+                    <div class="value">{high}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -212,9 +209,9 @@ if page == "🏠 Dashboard":
         with c3:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-label">Avg Severity</div>
-                    <div class="metric-value">{average_severity}/5</div>
+                <div class="card">
+                    <div class="label">AVERAGE SEVERITY</div>
+                    <div class="value">{average}/5</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -223,16 +220,14 @@ if page == "🏠 Dashboard":
         with c4:
             st.markdown(
                 f"""
-                <div class="metric-card">
-                    <div class="metric-label">Top Problem</div>
-                    <div class="metric-value">{top_problem}</div>
+                <div class="card">
+                    <div class="label">TOP PROBLEM</div>
+                    <div class="value">{top_problem}</div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-
-        # ---------- PROBLEM FREQUENCY ----------
 
         st.markdown(
             '<div class="section">📌 Problem Frequency</div>',
@@ -242,16 +237,10 @@ if page == "🏠 Dashboard":
         problem_count = (
             df["Problem"]
             .value_counts()
-            .rename_axis("Problem")
-            .reset_index(name="Reports")
         )
 
-        st.bar_chart(
-            problem_count.set_index("Problem")
-        )
+        st.bar_chart(problem_count)
 
-
-        # ---------- SEVERITY ----------
 
         st.markdown(
             '<div class="section">⚠️ Severity Distribution</div>',
@@ -267,45 +256,36 @@ if page == "🏠 Dashboard":
         st.bar_chart(severity_count)
 
 
-        # ---------- HOTSPOT ----------
-
         st.markdown(
-            '<div class="section">📍 Problem Hotspots</div>',
+            '<div class="section">📍 Location Overview</div>',
             unsafe_allow_html=True
         )
 
-        hotspot = (
-            df.groupby("Location")
-            .size()
-            .reset_index(name="Reports")
-            .sort_values(
-                "Reports",
-                ascending=False
-            )
+        location_count = (
+            df["Location"]
+            .value_counts()
         )
 
-        st.dataframe(
-            hotspot,
-            use_container_width=True,
-            hide_index=True
-        )
+        st.bar_chart(location_count)
 
 
-# =========================================================
+# ==================================================
 # ANALYSIS
-# =========================================================
+# ==================================================
 
 elif page == "📊 Analysis":
 
-    st.title("📊 Detailed Data Analysis")
+    st.title("📊 Detailed Analysis")
 
     if df.empty:
 
-        st.info("Add some reports first.")
+        st.info(
+            "No data available. Add some reports first."
+        )
 
     else:
 
-        # ---------- PRIORITY SCORE ----------
+        # Priority analysis
 
         result = []
 
@@ -345,6 +325,7 @@ elif page == "📊 Analysis":
                 level
             ])
 
+
         analysis = pd.DataFrame(
             result,
             columns=[
@@ -371,24 +352,22 @@ elif page == "📊 Analysis":
         )
 
 
-        # ---------- HEATMAP STYLE TABLE ----------
+        # Problem and location
 
-        st.subheader("🔥 Problem × Location Analysis")
+        st.subheader("📍 Problem × Location")
 
-        heatmap = pd.crosstab(
+        problem_location = pd.crosstab(
             df["Problem"],
             df["Location"]
         )
 
         st.dataframe(
-            heatmap.style.background_gradient(
-                cmap="Blues"
-            ),
+            problem_location,
             use_container_width=True
         )
 
 
-        # ---------- TIME ANALYSIS ----------
+        # Time analysis
 
         st.subheader("⏰ Reporting Time Pattern")
 
@@ -403,13 +382,13 @@ elif page == "📊 Analysis":
         peak_time = time_count.idxmax()
 
         st.info(
-            f"Most reports are received around **{peak_time}**."
+            f"⏰ Peak reporting time: **{peak_time}**"
         )
 
 
-        # ---------- LOCATION ANALYSIS ----------
+        # Location analysis
 
-        st.subheader("📍 Location Analysis")
+        st.subheader("📌 Location Analysis")
 
         location_analysis = (
             df.groupby("Location")
@@ -420,10 +399,11 @@ elif page == "📊 Analysis":
             .reset_index()
         )
 
-        location_analysis["Average_Severity"] = (
-            location_analysis["Average_Severity"]
-            .round(2)
-        )
+        location_analysis[
+            "Average_Severity"
+        ] = location_analysis[
+            "Average_Severity"
+        ].round(2)
 
         location_analysis = location_analysis.sort_values(
             "Reports",
@@ -437,7 +417,7 @@ elif page == "📊 Analysis":
         )
 
 
-        # ---------- DOWNLOAD ----------
+        # Download
 
         st.download_button(
             "📥 Download Analysis CSV",
@@ -447,20 +427,20 @@ elif page == "📊 Analysis":
         )
 
 
-# =========================================================
+# ==================================================
 # REPORT PROBLEM
-# =========================================================
+# ==================================================
 
 elif page == "📝 Report Problem":
 
     st.title("📝 Report a Campus Problem")
 
     st.write(
-        "Submit a problem anonymously. "
-        "Your report will be added to the analysis."
+        "Submit a problem anonymously."
     )
 
     st.divider()
+
 
     col1, col2 = st.columns(2)
 
@@ -479,6 +459,7 @@ elif page == "📝 Report Problem":
                 "Other"
             ]
         )
+
 
     with col2:
 
@@ -555,9 +536,9 @@ elif page == "📝 Report Problem":
             )
 
 
-# =========================================================
+# ==================================================
 # INSIGHTS
-# =========================================================
+# ==================================================
 
 elif page == "💡 Insights":
 
@@ -586,6 +567,7 @@ elif page == "💡 Insights":
             .value_counts()
         )
 
+
         top_problem = problem_count.idxmax()
 
         top_location = location_count.idxmax()
@@ -597,13 +579,11 @@ elif page == "💡 Insights":
         )
 
 
-        # ---------- INSIGHTS ----------
-
         st.markdown(
             f"""
             <div class="insight">
                 <b>🚨 Most Reported Problem</b><br><br>
-                {top_problem} is currently the most frequently reported problem.
+                {top_problem} is the most frequently reported problem.
             </div>
             """,
             unsafe_allow_html=True
@@ -614,7 +594,7 @@ elif page == "💡 Insights":
             f"""
             <div class="insight">
                 <b>📍 Problem Hotspot</b><br><br>
-                {top_location} has the highest number of student reports.
+                {top_location} has the highest number of reports.
             </div>
             """,
             unsafe_allow_html=True
@@ -624,7 +604,7 @@ elif page == "💡 Insights":
         st.markdown(
             f"""
             <div class="insight">
-                <b>⏰ Peak Reporting Period</b><br><br>
+                <b>⏰ Peak Reporting Time</b><br><br>
                 Most reports are associated with {peak_time}.
             </div>
             """,
@@ -643,33 +623,31 @@ elif page == "💡 Insights":
         )
 
 
-        # ---------- RECOMMENDATION ----------
-
         recommendations = {
 
             "Wi-Fi":
-                "Check network performance in frequently affected areas and during peak hours.",
+                "Check network performance in frequently affected areas.",
 
             "Canteen Queue":
-                "Improve queue management and consider additional service counters during busy hours.",
+                "Improve queue management during busy hours.",
 
             "Slow Computer":
-                "Inspect frequently affected computers and upgrade or maintain lab systems.",
+                "Inspect frequently affected computers in the labs.",
 
             "No Seats":
-                "Analyze peak library usage and consider increasing available seating.",
+                "Analyze peak library usage and consider additional seating.",
 
             "Water Problem":
-                "Regularly inspect drinking-water facilities and refill points.",
+                "Regularly inspect drinking-water facilities.",
 
             "Electricity":
-                "Inspect electrical infrastructure in frequently affected areas.",
+                "Inspect electrical equipment and power supply.",
 
             "Noise":
-                "Identify major noise sources and improve classroom/lab environment.",
+                "Identify and manage the main source of noise.",
 
             "Other":
-                "Investigate the most frequently reported issue and collect more detailed reports."
+                "Investigate the most frequently reported problem."
         }
 
 
@@ -684,12 +662,12 @@ elif page == "💡 Insights":
 
 
         st.caption(
-            "Insights are generated automatically from the reports "
-            "currently available in the Campus Reports Google Sheet."
+            "Insights are generated from the reports currently "
+            "available in the Campus Reports Google Sheet."
         )
 
 
-# ---------------- FOOTER ----------------
+# Footer
 
 st.divider()
 
