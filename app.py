@@ -9,36 +9,60 @@ st.set_page_config(
     layout="wide"
 )
 
+# ---------- STYLE ----------
+
 st.markdown("""
 <style>
+
 .main-title {
     font-size: 42px;
     font-weight: 700;
+    margin-bottom: 4px;
 }
 
 .subtitle {
-    font-size: 18px;
+    font-size: 17px;
     color: #666;
     margin-bottom: 20px;
 }
 
+.dashboard-card {
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid #e5e5e5;
+    background-color: #ffffff;
+}
+
+.card-title {
+    font-size: 14px;
+    color: #666;
+}
+
+.card-value {
+    font-size: 27px;
+    font-weight: 700;
+    margin-top: 5px;
+}
+
 .section-title {
     font-size: 25px;
-    font-weight: 600;
-    margin-top: 30px;
+    font-weight: 650;
+    margin-top: 32px;
     margin-bottom: 15px;
 }
 
-div[data-testid="stMetric"] {
-    padding: 15px;
-    border-radius: 10px;
+.insight-box {
+    padding: 18px;
+    border-radius: 12px;
     border: 1px solid #ddd;
+    margin-top: 10px;
 }
+
 </style>
 """, unsafe_allow_html=True)
 
 
-# Google Sheets connection
+# ---------- GOOGLE SHEETS ----------
 
 scopes = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -55,7 +79,7 @@ client = gspread.authorize(credentials)
 sheet = client.open("Campus Reports").sheet1
 
 
-# Load data
+# ---------- LOAD DATA ----------
 
 records = sheet.get_all_records()
 
@@ -84,7 +108,7 @@ if not df.empty:
     df["Severity"] = df["Severity"].astype(int)
 
 
-# Title
+# ---------- HEADER ----------
 
 st.markdown(
     '<div class="main-title">Campus Problem Analysis</div>',
@@ -92,21 +116,21 @@ st.markdown(
 )
 
 st.markdown(
-    '<div class="subtitle">Analysis of common college problems using student reports</div>',
+    '<div class="subtitle">'
+    'Analysis of common college problems using student reports'
+    '</div>',
     unsafe_allow_html=True
 )
 
 st.divider()
 
 
-# Dashboard summary
+# ---------- DASHBOARD ----------
 
 st.markdown(
-    '<div class="section-title">Dashboard Overview</div>',
+    '<div class="section-title">📊 Dashboard Overview</div>',
     unsafe_allow_html=True
 )
-
-c1, c2, c3, c4 = st.columns(4)
 
 if not df.empty:
 
@@ -116,13 +140,17 @@ if not df.empty:
         df[df["Severity"] >= 4]
     )
 
-    top_problem = df[
-        "Problem"
-    ].value_counts().idxmax()
+    top_problem = (
+        df["Problem"]
+        .value_counts()
+        .idxmax()
+    )
 
-    top_location = df[
-        "Location"
-    ].value_counts().idxmax()
+    top_location = (
+        df["Location"]
+        .value_counts()
+        .idxmax()
+    )
 
 else:
 
@@ -131,33 +159,60 @@ else:
     top_problem = "-"
     top_location = "-"
 
-c1.metric(
-    "Total Reports",
-    total_reports
-)
 
-c2.metric(
-    "High Severity",
-    high_severity
-)
+c1, c2, c3, c4 = st.columns(4)
 
-c3.metric(
-    "Top Problem",
-    top_problem
-)
+with c1:
+    st.markdown(
+        f"""
+        <div class="dashboard-card">
+        <div class="card-title">TOTAL REPORTS</div>
+        <div class="card-value">{total_reports}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-c4.metric(
-    "Top Location",
-    top_location
-)
+with c2:
+    st.markdown(
+        f"""
+        <div class="dashboard-card">
+        <div class="card-title">HIGH SEVERITY</div>
+        <div class="card-value">{high_severity}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with c3:
+    st.markdown(
+        f"""
+        <div class="dashboard-card">
+        <div class="card-title">TOP PROBLEM</div>
+        <div class="card-value">{top_problem}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with c4:
+    st.markdown(
+        f"""
+        <div class="dashboard-card">
+        <div class="card-title">TOP LOCATION</div>
+        <div class="card-value">{top_location}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
-# Filters
+# ---------- FILTERS ----------
 
 if not df.empty:
 
     st.markdown(
-        '<div class="section-title">Explore Reports</div>',
+        '<div class="section-title">🔎 Explore Reports</div>',
         unsafe_allow_html=True
     )
 
@@ -208,6 +263,10 @@ if not df.empty:
             filtered_df["Severity"] == selected_severity
         ]
 
+    st.write(
+        f"Showing **{len(filtered_df)}** report(s)"
+    )
+
     st.dataframe(
         filtered_df,
         use_container_width=True,
@@ -215,62 +274,11 @@ if not df.empty:
     )
 
 
-# Charts
+# ---------- ANALYSIS ----------
 
 if not df.empty:
 
-    st.markdown(
-        '<div class="section-title">Problem Overview</div>',
-        unsafe_allow_html=True
-    )
-
-    chart1, chart2 = st.columns(2)
-
-    with chart1:
-
-        st.write("Reports by Problem")
-
-        problem_count = (
-            df["Problem"]
-            .value_counts()
-        )
-
-        st.bar_chart(problem_count)
-
-    with chart2:
-
-        st.write("Reports by Location")
-
-        location_count = (
-            df["Location"]
-            .value_counts()
-        )
-
-        st.bar_chart(location_count)
-
-
-    # Severity
-
-    st.markdown(
-        '<div class="section-title">Severity Analysis</div>',
-        unsafe_allow_html=True
-    )
-
-    severity_count = (
-        df["Severity"]
-        .value_counts()
-        .sort_index()
-    )
-
-    st.bar_chart(severity_count)
-
-
-    # Priority analysis
-
-    st.markdown(
-        '<div class="section-title">Priority Analysis</div>',
-        unsafe_allow_html=True
-    )
+    # Priority calculation
 
     result = []
 
@@ -282,17 +290,19 @@ if not df.empty:
 
         reports = len(values)
 
-        average = values.mean()
+        average_severity = values.mean()
 
-        priority = reports * average
+        priority_score = (
+            reports * average_severity
+        )
 
-        if priority >= 12:
+        if priority_score >= 12:
             level = "Critical"
 
-        elif priority >= 8:
+        elif priority_score >= 8:
             level = "High"
 
-        elif priority >= 5:
+        elif priority_score >= 5:
             level = "Medium"
 
         else:
@@ -301,8 +311,8 @@ if not df.empty:
         result.append([
             problem,
             reports,
-            round(average, 2),
-            round(priority, 2),
+            round(average_severity, 2),
+            round(priority_score, 2),
             level
         ])
 
@@ -322,6 +332,14 @@ if not df.empty:
         ascending=False
     )
 
+
+    # ---------- PRIORITY ----------
+
+    st.markdown(
+        '<div class="section-title">🚨 Priority Analysis</div>',
+        unsafe_allow_html=True
+    )
+
     st.dataframe(
         analysis,
         use_container_width=True,
@@ -329,10 +347,90 @@ if not df.empty:
     )
 
 
-    # Time analysis
+    # ---------- TOP PRIORITY ----------
+
+    highest = analysis.iloc[0]
+
+    highest_problem = highest["Problem"]
+
+    highest_location = (
+        df[df["Problem"] == highest_problem]
+        ["Location"]
+        .value_counts()
+        .idxmax()
+    )
 
     st.markdown(
-        '<div class="section-title">Time Analysis</div>',
+        '<div class="section-title">🎯 Current Priority</div>',
+        unsafe_allow_html=True
+    )
+
+    st.success(
+        f"{highest_problem} currently has the highest "
+        f"priority score of {highest['Priority Score']}. "
+        f"Most reports for this problem come from "
+        f"{highest_location}."
+    )
+
+
+    # ---------- CHARTS ----------
+
+    st.markdown(
+        '<div class="section-title">📈 Problem Trends</div>',
+        unsafe_allow_html=True
+    )
+
+    chart1, chart2 = st.columns(2)
+
+    with chart1:
+
+        st.write("Reports by Problem")
+
+        problem_count = (
+            df["Problem"]
+            .value_counts()
+        )
+
+        st.bar_chart(
+            problem_count
+        )
+
+    with chart2:
+
+        st.write("Reports by Location")
+
+        location_count = (
+            df["Location"]
+            .value_counts()
+        )
+
+        st.bar_chart(
+            location_count
+        )
+
+
+    # ---------- SEVERITY ----------
+
+    st.markdown(
+        '<div class="section-title">⚠️ Severity Distribution</div>',
+        unsafe_allow_html=True
+    )
+
+    severity_count = (
+        df["Severity"]
+        .value_counts()
+        .sort_index()
+    )
+
+    st.bar_chart(
+        severity_count
+    )
+
+
+    # ---------- TIME ----------
+
+    st.markdown(
+        '<div class="section-title">⏰ Peak Reporting Time</div>',
         unsafe_allow_html=True
     )
 
@@ -341,40 +439,49 @@ if not df.empty:
         .value_counts()
     )
 
-    st.bar_chart(time_count)
+    st.bar_chart(
+        time_count
+    )
 
     peak_time = time_count.idxmax()
 
     st.info(
-        f"Peak reporting time: {peak_time}"
+        f"Most reports are received around **{peak_time}**."
     )
 
 
-    # Smart insight
+    # ---------- PATTERNS ----------
 
     st.markdown(
-        '<div class="section-title">Smart Insight</div>',
+        '<div class="section-title">🔍 Problem Patterns</div>',
         unsafe_allow_html=True
     )
 
-    highest = analysis.iloc[0]
+    patterns = (
+        df.groupby(
+            ["Problem", "Location"]
+        )
+        .size()
+        .reset_index(
+            name="Reports"
+        )
+        .sort_values(
+            "Reports",
+            ascending=False
+        )
+    )
 
-    highest_problem = highest["Problem"]
-
-    highest_location = df[
-        df["Problem"] == highest_problem
-    ]["Location"].value_counts().idxmax()
-
-    st.success(
-        f"{highest_problem} currently has the highest "
-        f"priority score. Most reports for this problem "
-        f"come from {highest_location}."
+    st.dataframe(
+        patterns,
+        use_container_width=True,
+        hide_index=True
     )
 
 
-    # Recommendation
+    # ---------- RECOMMENDATION ----------
 
     recommendations = {
+
         "Wi-Fi":
         "Wi-Fi should be checked in areas where reports are frequent.",
 
@@ -398,7 +505,7 @@ if not df.empty:
     }
 
     st.markdown(
-        '<div class="section-title">Recommendation</div>',
+        '<div class="section-title">💡 Recommendation</div>',
         unsafe_allow_html=True
     )
 
@@ -410,22 +517,17 @@ if not df.empty:
     )
 
 
-    # Prediction
+    # ---------- PREDICTION ----------
 
     st.markdown(
-        '<div class="section-title">Problem Prediction</div>',
+        '<div class="section-title">🔮 Problem Prediction</div>',
         unsafe_allow_html=True
     )
 
     st.write(
         f"Based on the current reports, "
-        f"{highest_problem} is most likely to need "
-        f"attention next."
-    )
-
-    st.write(
-        f"Current priority score: "
-        f"{highest['Priority Score']}"
+        f"**{highest_problem}** is most likely to "
+        f"need attention next."
     )
 
     st.caption(
@@ -435,27 +537,29 @@ if not df.empty:
     )
 
 
-    # Download
+    # ---------- DOWNLOAD ----------
 
     st.markdown(
-        '<div class="section-title">Download Reports</div>',
+        '<div class="section-title">📥 Download Data</div>',
         unsafe_allow_html=True
     )
 
-    csv_data = df.to_csv(index=False)
+    csv_data = df.to_csv(
+        index=False
+    )
 
     st.download_button(
-        "Download CSV",
+        "Download Reports CSV",
         csv_data,
         "campus_reports.csv",
         "text/csv"
     )
 
 
-# Report form
+# ---------- REPORT FORM ----------
 
 st.markdown(
-    '<div class="section-title">Report a Problem</div>',
+    '<div class="section-title">📝 Report a Problem</div>',
     unsafe_allow_html=True
 )
 
@@ -492,6 +596,7 @@ with p2:
         ]
     )
 
+
 time = st.selectbox(
     "Time",
     [
@@ -508,6 +613,7 @@ time = st.selectbox(
     ]
 )
 
+
 severity = st.slider(
     "Severity",
     1,
@@ -515,14 +621,16 @@ severity = st.slider(
     3
 )
 
+
 description = st.text_area(
     "Describe the problem"
 )
 
 
-# Submit report
-
-if st.button("Submit Report"):
+if st.button(
+    "Submit Report",
+    type="primary"
+):
 
     if description.strip():
 
