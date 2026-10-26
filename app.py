@@ -9,28 +9,33 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
+# ==================== CONFIG ====================
+
 st.set_page_config(
-    page_title="Study Buddy AI",
+    page_title="Study Buddy AI | Learning Workspace",
     page_icon="🎓",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 MODEL = "openai/gpt-oss-20b"
+
+# ==================== PREMIUM DESIGN ====================
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --bg: #F4F7F2;
-    --paper: #FFFFFF;
-    --ink: #17372A;
     --green: #087F5B;
-    --deep: #064E3B;
-    --mint: #DDF3E5;
-    --line: #DCE7DD;
-    --muted: #718278;
+    --deep: #103B30;
+    --dark: #092B24;
+    --mint: #DDF3E7;
+    --bg: #F5F7F4;
+    --white: #FFFFFF;
+    --ink: #172E26;
+    --muted: #75847B;
+    --line: #E1E8E1;
 }
 
 html, body, [class*="css"] {
@@ -51,8 +56,8 @@ header[data-testid="stHeader"] {
 }
 
 .block-container {
-    max-width: 1250px;
-    padding: 1.3rem 2rem 3rem;
+    max-width: 1450px;
+    padding: 1.5rem 2.2rem 3rem;
 }
 
 h1, h2, h3 {
@@ -62,33 +67,105 @@ h1, h2, h3 {
 }
 
 p {
-    line-height: 1.7;
+    line-height: 1.75;
 }
 
 hr {
     border-color: var(--line);
 }
 
-div.stButton > button {
-    min-height: 44px;
-    border-radius: 12px;
-    border: 1px solid var(--line);
-    font-weight: 700;
-    background: white;
-    color: var(--ink);
-    transition: all .2s ease;
+/* Sidebar */
+
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #103B30 0%, #092B24 100%);
+    border-right: 1px solid #23483C;
 }
 
-div.stButton > button:hover {
+section[data-testid="stSidebar"] * {
+    color: #E9F4ED;
+}
+
+section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    padding: 7px 5px;
+    font-size: 14px;
+}
+
+section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
+    font-weight: 500;
+}
+
+section[data-testid="stSidebar"] hr {
+    border-color: #315348;
+}
+
+.sb-brand {
+    padding: 14px 4px 23px;
+}
+
+.sb-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 17px;
+    background: linear-gradient(135deg, #19B889, #087F5B);
+    color: white;
+    font: 800 25px 'Manrope', sans-serif;
+    box-shadow: 0 8px 25px #00000025;
+    margin-bottom: 16px;
+}
+
+.sb-brand-name {
+    font: 800 22px 'Manrope', sans-serif;
+    letter-spacing: -.8px;
+    color: #FFFFFF;
+}
+
+.sb-brand-caption {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #A9C8B7;
+    margin-top: 6px;
+}
+
+.sb-side-note {
+    background: #FFFFFF0D;
+    border: 1px solid #FFFFFF19;
+    border-radius: 15px;
+    padding: 16px;
+    margin-top: 20px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: #D4E6DC;
+}
+
+/* Buttons and inputs */
+
+div.stButton > button,
+div.stDownloadButton > button {
+    min-height: 44px;
+    border-radius: 11px;
+    border: 1px solid var(--line);
+    font-weight: 700;
+    transition: .2s ease;
+}
+
+div.stButton > button {
+    background: white;
+    color: var(--ink);
+}
+
+div.stButton > button:hover,
+div.stDownloadButton > button:hover {
     border-color: var(--green);
     color: var(--green);
-    background: #F0F8F1;
 }
 
 div.stButton > button[kind="primary"] {
     background: var(--green);
-    color: white;
     border-color: var(--green);
+    color: white;
 }
 
 div.stButton > button[kind="primary"]:hover {
@@ -96,314 +173,330 @@ div.stButton > button[kind="primary"]:hover {
     color: white;
 }
 
-.stTextInput input, .stTextArea textarea,
-.stSelectbox div[data-baseweb="select"],
+.stTextInput input,
+.stTextArea textarea,
 .stNumberInput input {
-    border-radius: 11px !important;
+    border-radius: 10px !important;
 }
 
 [data-testid="stFileUploader"] {
-    border: 1px dashed #91C5A0;
-    border-radius: 16px;
     background: white;
+    border: 1px dashed #9BC9AE;
+    border-radius: 14px;
     padding: 12px;
-}
-
-[data-testid="stChatMessage"] {
-    background: white;
-    border: 1px solid var(--line);
-    border-radius: 15px;
 }
 
 [data-testid="stMetric"] {
     background: white;
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: 15px;
     padding: 17px;
 }
 
 [data-testid="stMetricValue"] {
     color: var(--green);
     font-family: 'Manrope', sans-serif;
+    font-weight: 800;
 }
 
-.sb-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid var(--line);
-    padding: 5px 0 18px;
-    margin-bottom: 22px;
-}
-
-.sb-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.sb-logo {
-    width: 46px;
-    height: 46px;
-    border-radius: 15px 15px 15px 4px;
-    background: var(--green);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font: 800 22px 'Manrope', sans-serif;
-    box-shadow: 0 6px 18px #087F5B25;
-}
-
-.sb-name {
-    font: 800 18px 'Manrope', sans-serif;
-    letter-spacing: -.7px;
-    color: var(--ink);
-}
-
-.sb-tag {
-    font-size: 9px;
-    letter-spacing: 1.5px;
-    color: var(--muted);
-    margin-top: 4px;
-}
-
-.sb-status {
-    color: var(--green);
-    background: #EAF7ED;
-    border: 1px solid #CBE6D0;
-    border-radius: 30px;
-    padding: 9px 12px;
-    font-size: 10px;
-    letter-spacing: .7px;
-    white-space: nowrap;
-}
-
-.sb-hero {
-    position: relative;
-    overflow: hidden;
-    background: linear-gradient(120deg, #103D32, #087F5B 72%, #15976C);
-    border-radius: 25px;
-    padding: 38px;
-    color: white;
-    min-height: 315px;
-}
-
-.sb-hero:after {
-    content: "";
-    position: absolute;
-    width: 300px;
-    height: 300px;
-    border: 1px solid #FFFFFF35;
-    border-radius: 50%;
-    right: -100px;
-    top: -150px;
-    box-shadow: 0 0 0 35px #FFFFFF08,
-                0 0 0 75px #FFFFFF06;
-}
-
-.sb-kicker {
-    color: #C7EDB5;
-    font-size: 10px;
-    letter-spacing: 2px;
-    font-weight: 700;
-}
-
-.sb-hero-title {
-    position: relative;
-    z-index: 1;
-    font: 800 clamp(37px, 5vw, 62px)/1.08 'Manrope', sans-serif;
-    letter-spacing: -3px;
-    color: white;
-    margin: 23px 0 15px;
-}
-
-.sb-hero-title span {
-    color: #C7EDB5;
-}
-
-.sb-hero-copy {
-    position: relative;
-    z-index: 1;
-    color: #E1F1E8;
-    font-size: 14px;
-    max-width: 530px;
-    line-height: 1.9;
-}
-
-.sb-eyebrow {
-    color: var(--green);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.7px;
-}
-
-.sb-heading {
-    font: 800 clamp(28px, 3vw, 40px)/1.2 'Manrope', sans-serif;
-    letter-spacing: -1.8px;
-    margin: 8px 0;
-}
-
-.sb-sub {
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.8;
-}
-
-.sb-section {
-    margin: 30px 0 15px;
-}
-
-.sb-section-title {
-    font: 800 24px 'Manrope', sans-serif;
-    letter-spacing: -1px;
-}
-
-.sb-stat {
+[data-testid="stChatMessage"] {
     background: white;
     border: 1px solid var(--line);
-    border-radius: 17px;
-    padding: 19px;
-    min-height: 145px;
+    border-radius: 14px;
 }
 
-.sb-stat-label {
-    color: var(--muted);
-    font-size: 10px;
-    letter-spacing: 1px;
-    font-weight: 700;
+/* Header */
+
+.sb-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 2px 0 17px;
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--line);
 }
 
-.sb-stat-number {
-    color: var(--green);
-    font: 800 38px 'Manrope', sans-serif;
-    letter-spacing: -2px;
-    margin-top: 13px;
+.sb-top-title {
+    font: 800 18px 'Manrope', sans-serif;
+    letter-spacing: -.5px;
 }
 
-.sb-stat-caption {
+.sb-top-caption {
     color: var(--muted);
     font-size: 11px;
     margin-top: 3px;
 }
 
+.sb-pill {
+    display: inline-block;
+    color: var(--green);
+    background: #E6F4E9;
+    border: 1px solid #CDE7D3;
+    border-radius: 30px;
+    padding: 8px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    white-space: nowrap;
+}
+
+/* Dashboard hero */
+
+.sb-hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(125deg, #103B30 0%, #087F5B 75%, #15966C 100%);
+    border-radius: 23px;
+    padding: 36px;
+    color: white;
+    min-height: 300px;
+    box-shadow: 0 14px 35px #103B3017;
+}
+
+.sb-hero:after {
+    content: "";
+    position: absolute;
+    width: 290px;
+    height: 290px;
+    border-radius: 50%;
+    border: 1px solid #FFFFFF2D;
+    right: -90px;
+    top: -155px;
+    box-shadow: 0 0 0 35px #FFFFFF08,
+                0 0 0 75px #FFFFFF06;
+}
+
+.sb-kicker {
+    position: relative;
+    z-index: 1;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #C5F0D4;
+}
+
+.sb-hero h1 {
+    position: relative;
+    z-index: 1;
+    color: white !important;
+    font-size: clamp(34px, 4.2vw, 57px);
+    line-height: 1.12;
+    letter-spacing: -2.6px;
+    margin: 23px 0 15px;
+}
+
+.sb-hero h1 span {
+    color: #C6F0A9;
+}
+
+.sb-hero-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 570px;
+    color: #E0F1E8;
+    font-size: 13px;
+    line-height: 1.9;
+}
+
+.sb-section {
+    margin: 31px 0 15px;
+}
+
+.sb-eyebrow {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1.8px;
+    color: var(--green);
+}
+
+.sb-section-title {
+    font: 800 25px 'Manrope', sans-serif;
+    letter-spacing: -1.1px;
+    margin-top: 5px;
+}
+
+.sb-muted {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.8;
+    margin-top: 5px;
+}
+
+/* Stats */
+
+.sb-stat {
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 19px;
+    min-height: 139px;
+}
+
+.sb-stat-icon {
+    color: var(--green);
+    background: var(--mint);
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    font-size: 18px;
+}
+
+.sb-stat-number {
+    font: 800 32px 'Manrope', sans-serif;
+    letter-spacing: -1.5px;
+    color: var(--ink);
+    margin-top: 13px;
+}
+
+.sb-stat-label {
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 3px;
+}
+
+/* Feature cards */
+
 .sb-feature {
     background: white;
     border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 23px;
-    min-height: 185px;
-    margin-bottom: 10px;
+    border-radius: 17px;
+    padding: 21px;
+    min-height: 170px;
+    margin-bottom: 8px;
 }
 
 .sb-feature-icon {
-    display: inline-flex;
-    width: 43px;
-    height: 43px;
+    width: 42px;
+    height: 42px;
+    border-radius: 13px;
+    background: #E5F5E9;
+    display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 13px;
-    background: var(--mint);
-    font-size: 22px;
-    margin-bottom: 17px;
+    font-size: 21px;
+    margin-bottom: 15px;
 }
 
 .sb-feature-title {
-    font: 800 20px 'Manrope', sans-serif;
-    letter-spacing: -.7px;
+    font: 800 18px 'Manrope', sans-serif;
+    letter-spacing: -.6px;
 }
 
 .sb-feature-copy {
     color: var(--muted);
     font-size: 12px;
     line-height: 1.8;
-    margin-top: 8px;
+    margin-top: 7px;
 }
+
+/* Content panels */
 
 .sb-panel {
     background: white;
     border: 1px solid var(--line);
-    border-radius: 18px;
-    padding: 23px;
-    margin-bottom: 14px;
+    border-radius: 16px;
+    padding: 21px;
+    margin-bottom: 15px;
 }
 
 .sb-panel-label {
-    color: var(--green);
     font-size: 10px;
-    font-weight: 700;
+    font-weight: 800;
+    color: var(--green);
     letter-spacing: 1.5px;
 }
 
 .sb-panel-title {
-    font: 800 22px 'Manrope', sans-serif;
-    letter-spacing: -.8px;
+    font: 800 21px 'Manrope', sans-serif;
+    letter-spacing: -.7px;
     margin: 8px 0;
 }
 
-.sb-side {
-    background: #E2F2E5;
+.sb-quote {
+    background: #E5F3E8;
+    border-radius: 17px;
+    padding: 23px;
     color: var(--deep);
-    border-radius: 19px;
-    padding: 24px;
+    margin-bottom: 15px;
 }
 
-.sb-side-quote {
-    font: 800 23px/1.4 'Manrope', sans-serif;
+.sb-quote-title {
+    font: 800 22px/1.4 'Manrope', sans-serif;
     letter-spacing: -.7px;
-    margin: 15px 0;
+    margin: 12px 0;
 }
 
 .sb-footer {
-    border-top: 1px solid var(--line);
-    margin-top: 32px;
-    padding-top: 16px;
-    color: #819087;
-    font-size: 9px;
-    letter-spacing: 1px;
     display: flex;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
+    border-top: 1px solid var(--line);
+    margin-top: 30px;
+    padding-top: 17px;
+    color: #849188;
+    font-size: 9px;
+    letter-spacing: 1px;
 }
 
 @media(max-width: 700px) {
     .block-container {
-        padding: .8rem 1rem 2rem;
+        padding: .8rem .9rem 2rem;
     }
+
     .sb-hero {
-        padding: 25px 22px;
-        min-height: 300px;
+        padding: 25px 21px;
+        min-height: 265px;
+        border-radius: 19px;
     }
-    .sb-hero-title {
-        font-size: 39px;
-        letter-spacing: -2px;
+
+    .sb-hero h1 {
+        font-size: 36px;
+        letter-spacing: -1.8px;
     }
+
     .sb-hero-copy {
         font-size: 12px;
     }
-    .sb-name {
-        font-size: 15px;
+
+    .sb-top-title {
+        font-size: 16px;
     }
-    .sb-tag {
+
+    .sb-pill {
         font-size: 8px;
-        letter-spacing: .8px;
+        padding: 7px 8px;
     }
-    .sb-status {
-        font-size: 8px;
-        padding: 8px;
+
+    .sb-section-title {
+        font-size: 22px;
     }
+
     .sb-stat {
-        padding: 13px;
-        min-height: 125px;
+        padding: 12px;
+        min-height: 120px;
     }
+
     .sb-stat-number {
-        font-size: 30px;
+        font-size: 27px;
     }
+
+    .sb-stat-label {
+        font-size: 10px;
+    }
+
     .sb-feature {
-        padding: 18px;
-        min-height: auto;
+        padding: 16px;
+        min-height: 160px;
     }
+
+    .sb-feature-title {
+        font-size: 16px;
+    }
+
     .sb-footer {
         flex-direction: column;
     }
@@ -411,8 +504,7 @@ div.stButton > button[kind="primary"]:hover {
 </style>
 """, unsafe_allow_html=True)
 
-
-# ---------- SESSION STATE ----------
+# ==================== SESSION DATA ====================
 
 defaults = {
     "page": "Dashboard",
@@ -425,12 +517,24 @@ defaults = {
     "notes_title": "",
     "pdf_text": "",
     "activity": "Your learning journey starts here",
+    "quiz_widget": 0,
+    "notes_widget": 0,
 }
 
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
+PAGES = [
+    "Dashboard",
+    "AI Quiz",
+    "PDF Notes",
+    "Study Chat",
+    "Performance",
+    "Settings"
+]
+
+# ==================== AI HELPERS ====================
 
 def get_client():
     try:
@@ -444,13 +548,13 @@ def get_client():
     return Groq(api_key=key)
 
 
-def ask_ai(prompt, max_tokens=3000, temperature=0.4, messages=None):
+def ask_ai(prompt="", max_tokens=3000, messages=None):
     client = get_client()
 
     if client is None:
         st.error(
             "GROQ_API_KEY is missing. Open Streamlit Cloud → "
-            "App settings → Secrets and configure your key."
+            "App settings → Secrets. Add your key privately there."
         )
         return None
 
@@ -461,40 +565,36 @@ def ask_ai(prompt, max_tokens=3000, temperature=0.4, messages=None):
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
-            temperature=temperature,
+            temperature=0.35,
             max_tokens=max_tokens
         )
         return response.choices[0].message.content.strip()
-    except Exception as error:
-        st.error(f"AI request failed: {error}")
+    except Exception:
+        st.error(
+            "The AI request could not be completed. Check your Groq "
+            "API key, model access and internet connection, then try again."
+        )
         return None
 
 
 def page_header(number, title, description):
     st.markdown(f"""
-    <div style="padding:10px 0 22px;border-bottom:1px solid #DCE7DD;margin-bottom:24px">
+    <div style="padding:5px 0 21px;border-bottom:1px solid #E1E8E1;margin-bottom:23px">
         <div class="sb-eyebrow">STUDY BUDDY AI / {escape(number)}</div>
-        <div class="sb-heading">{escape(title)}</div>
-        <div class="sb-sub">{escape(description)}</div>
+        <div class="sb-section-title" style="font-size:clamp(27px,4vw,39px);margin-top:8px">
+            {escape(title)}
+        </div>
+        <div class="sb-muted">{escape(description)}</div>
     </div>
     """, unsafe_allow_html=True)
 
 
-def section(label, title):
+def section(label, title, description=""):
     st.markdown(f"""
     <div class="sb-section">
         <div class="sb-eyebrow">{escape(label)}</div>
         <div class="sb-section-title">{escape(title)}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def stat(label, value, caption):
-    st.markdown(f"""
-    <div class="sb-stat">
-        <div class="sb-stat-label">{escape(label)}</div>
-        <div class="sb-stat-number">{escape(str(value))}</div>
-        <div class="sb-stat-caption">{escape(caption)}</div>
+        {f'<div class="sb-muted">{escape(description)}</div>' if description else ''}
     </div>
     """, unsafe_allow_html=True)
 
@@ -504,7 +604,7 @@ def panel(label, title, description):
     <div class="sb-panel">
         <div class="sb-panel-label">{escape(label)}</div>
         <div class="sb-panel-title">{escape(title)}</div>
-        <div class="sb-sub">{escape(description)}</div>
+        <div class="sb-muted">{escape(description)}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -521,16 +621,18 @@ def make_pdf(content, title="Study Buddy AI Notes"):
     )
 
     styles = getSampleStyleSheet()
+
     title_style = ParagraphStyle(
-        "SBTitle",
+        "StudyBuddyTitle",
         parent=styles["Title"],
         textColor=colors.HexColor("#087F5B"),
         fontSize=22,
         leading=28,
         spaceAfter=18
     )
+
     body_style = ParagraphStyle(
-        "SBBody",
+        "StudyBuddyBody",
         parent=styles["BodyText"],
         fontSize=10,
         leading=16,
@@ -568,76 +670,107 @@ def make_pdf(content, title="Study Buddy AI Notes"):
     return buffer.getvalue()
 
 
-# ---------- BRAND AND NAVIGATION ----------
+# ==================== SIDEBAR ====================
 
-st.markdown("""
-<div class="sb-top">
+with st.sidebar:
+    st.markdown("""
     <div class="sb-brand">
         <div class="sb-logo">S.</div>
-        <div>
-            <div class="sb-name">Study Buddy AI</div>
-            <div class="sb-tag">YOUR PERSONAL LEARNING SPACE</div>
-        </div>
+        <div class="sb-brand-name">Study Buddy AI</div>
+        <div class="sb-brand-caption">YOUR LEARNING SPACE</div>
     </div>
-    <div class="sb-status">✦ AI WORKSPACE</div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.caption("WORKSPACE MENU")
+
+    selected_page = st.radio(
+        "Navigate",
+        PAGES,
+        index=PAGES.index(st.session_state.page),
+        label_visibility="collapsed",
+        key="sidebar_navigation"
+    )
+    st.session_state.page = selected_page
+
+    st.markdown("---")
+    st.markdown("""
+    <div class="sb-side-note">
+        <strong>✦ YOUR AI STUDY PARTNER</strong><br><br>
+        Create practice quizzes, organise study notes and understand
+        difficult concepts one step at a time.
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.caption("POWERED BY GROQ AI")
+    st.caption("LEARN · PRACTISE · GROW")
+
+
+# ==================== TOP BAR ====================
+
+st.markdown(f"""
+<div class="sb-topbar">
+    <div>
+        <div class="sb-top-title">Study Buddy AI</div>
+        <div class="sb-top-caption">Your personal learning workspace</div>
+    </div>
+    <div class="sb-pill">✦ AI WORKSPACE</div>
 </div>
 """, unsafe_allow_html=True)
 
-pages = [
-    "Dashboard",
-    "AI Quiz",
-    "PDF Notes",
-    "Study Chat",
-    "Performance",
-    "Settings"
-]
 
-st.session_state.page = st.radio(
-    "Navigation",
-    pages,
-    index=pages.index(st.session_state.page),
-    horizontal=True,
-    label_visibility="collapsed",
-    key="main_navigation"
-)
-
-st.markdown("---")
-
-
-# ---------- DASHBOARD ----------
+# ==================== DASHBOARD ====================
 
 def dashboard():
     st.markdown("""
     <div class="sb-hero">
-        <div class="sb-kicker">✦ YOUR PERSONAL AI STUDY SPACE</div>
-        <div class="sb-hero-title">
-            Make every study<br>session <span>count.</span>
-        </div>
+        <div class="sb-kicker">YOUR PERSONAL AI STUDY SPACE</div>
+        <h1>Study smarter.<br><span>Achieve more.</span></h1>
         <div class="sb-hero-copy">
-            One workspace for smarter revision, clearer notes and better
-            understanding. Learn at your own pace with your personal AI tutor.
+            Your all-in-one workspace for practice quizzes, clear study notes
+            and personalised doubt solving. Make every study session count.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    section("YOUR ACTIVITY / 01", "Your study overview")
-
     quiz_count = len(st.session_state.quiz_history)
     notes_count = len(st.session_state.notes_history)
     chat_count = sum(
-        1 for message in st.session_state.chat if message["role"] == "user"
+        1 for m in st.session_state.chat if m["role"] == "user"
+    )
+
+    section(
+        "YOUR WORKSPACE / 01",
+        "Study overview",
+        "A snapshot of your activity in this session."
     )
 
     a, b, c = st.columns(3)
 
-    with a:
-        stat("QUIZ SETS", quiz_count, "Practice sets created")
-    with b:
-        stat("NOTES CREATED", notes_count, "Study resources prepared")
-    with c:
-        stat("QUESTIONS ASKED", chat_count, "Questions sent to your tutor")
+    stats = [
+        ("✳", quiz_count, "QUIZ SETS", "Practice sets created"),
+        ("▤", notes_count, "NOTES CREATED", "Revision resources"),
+        ("◉", chat_count, "QUESTIONS ASKED", "Tutor conversations"),
+    ]
 
-    section("THE TOOLKIT / 02", "Choose your next move")
+    for col, item in zip([a, b, c], stats):
+        icon, value, label, caption = item
+        with col:
+            st.markdown(f"""
+            <div class="sb-stat">
+                <div class="sb-stat-icon">{icon}</div>
+                <div class="sb-stat-number">{value}</div>
+                <div class="sb-stat-label">{label}</div>
+                <div class="sb-muted">{caption}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    section(
+        "YOUR TOOLKIT / 02",
+        "Everything you need to learn",
+        "Choose a workspace and get started."
+    )
 
     a, b = st.columns(2)
 
@@ -647,12 +780,14 @@ def dashboard():
             <div class="sb-feature-icon">✳</div>
             <div class="sb-feature-title">AI Quiz Lab</div>
             <div class="sb-feature-copy">
-                Build topic-based questions, practise concepts and review
-                answers with explanations.
+                Generate topic-based practice questions with answers and
+                explanations to test your understanding.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Open AI Quiz ↗", key="home_quiz", width="stretch"):
+
+        if st.button("Explore AI Quiz  →", key="dash_quiz",
+                     type="primary", width="stretch"):
             st.session_state.page = "AI Quiz"
             st.rerun()
 
@@ -662,12 +797,14 @@ def dashboard():
             <div class="sb-feature-icon">▤</div>
             <div class="sb-feature-title">Notes Studio</div>
             <div class="sb-feature-copy">
-                Turn readable PDF material into structured notes for revision
-                and download them as TXT or PDF.
+                Transform readable PDFs into organised revision notes
+                and export your study material.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Open PDF Notes ↗", key="home_notes", width="stretch"):
+
+        if st.button("Create study notes  →", key="dash_notes",
+                     width="stretch"):
             st.session_state.page = "PDF Notes"
             st.rerun()
 
@@ -677,14 +814,16 @@ def dashboard():
         st.markdown("""
         <div class="sb-feature">
             <div class="sb-feature-icon">◉</div>
-            <div class="sb-feature-title">Study Chat</div>
+            <div class="sb-feature-title">Personal AI Tutor</div>
             <div class="sb-feature-copy">
-                Ask doubts and explore difficult topics with clear,
-                step-by-step explanations.
+                Ask doubts, explore examples and get step-by-step
+                explanations in clear language.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("Open Study Chat ↗", key="home_chat", width="stretch"):
+
+        if st.button("Ask a question  →", key="dash_chat",
+                     width="stretch"):
             st.session_state.page = "Study Chat"
             st.rerun()
 
@@ -692,128 +831,141 @@ def dashboard():
         st.markdown("""
         <div class="sb-feature">
             <div class="sb-feature-icon">↗</div>
-            <div class="sb-feature-title">Growth Tracker</div>
+            <div class="sb-feature-title">Progress Centre</div>
             <div class="sb-feature-copy">
-                Review your recent quizzes, notes and activity from the
-                current session.
+                Review your quiz sets, notes and recent study activity
+                from this session.
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("View Performance ↗", key="home_performance", width="stretch"):
+
+        if st.button("View my progress  →", key="dash_progress",
+                     width="stretch"):
             st.session_state.page = "Performance"
             st.rerun()
 
-    section("LEARNING TRAIL / 03", "Your latest activity")
-    panel("RECENT ACTIVITY", "Your learning journey",
-          st.session_state.activity)
-
-    st.markdown("""
-    <div class="sb-footer">
-        <span>STUDY BUDDY AI · PERSONAL LEARNING WORKSPACE</span>
-        <span>LEARN WITH PURPOSE ↗</span>
-    </div>
-    """, unsafe_allow_html=True)
+    section("RECENT ACTIVITY / 03", "Your learning trail")
+    panel(
+        "LATEST UPDATE",
+        "Keep moving forward",
+        st.session_state.activity
+    )
 
 
-# ---------- AI QUIZ ----------
+# ==================== AI QUIZ ====================
 
 def ai_quiz():
     page_header(
-        "01 / PRACTICE",
+        "01 / PRACTISE",
         "AI Quiz Lab",
-        "Create practice questions around your subject, level and goals."
+        "Build a personalised practice set for your next study session."
     )
 
-    left, right = st.columns([1.2, 0.8])
+    a, b = st.columns([1.25, 0.75])
 
-    with left:
-        panel("QUIZ CONFIGURATION", "Build your practice set",
-              "Choose a topic and customise your revision session.")
+    with a:
+        panel(
+            "QUIZ BUILDER",
+            "Configure your practice",
+            "Choose your topic, difficulty and preferred question style."
+        )
 
         topic = st.text_input(
-            "Topic or subject",
+            "Subject or topic",
             placeholder="e.g. BJT, recursion, electrochemistry",
             key="quiz_topic_input"
         )
+
         difficulty = st.selectbox(
-            "Difficulty", ["Easy", "Medium", "Hard", "Mixed"]
+            "Difficulty",
+            ["Easy", "Medium", "Hard", "Mixed"],
+            key="quiz_difficulty"
         )
+
         qtype = st.selectbox(
-            "Question format", ["MCQ", "Short Answer", "Mixed"]
+            "Question type",
+            ["MCQ", "Short Answer", "Mixed"],
+            key="quiz_type"
         )
+
         language = st.selectbox(
-            "Language", ["Simple English", "Hindi", "Hinglish"]
+            "Language",
+            ["Simple English", "Hindi", "Hinglish"],
+            key="quiz_language"
         )
+
         count = st.select_slider(
             "Number of questions",
             options=[5, 10, 15, 20, 30, 40, 50],
-            value=10
+            value=10,
+            key="quiz_count"
         )
 
         generate = st.button(
-            "✳ Generate quiz",
+            "✳ Generate my quiz",
             type="primary",
             width="stretch"
         )
 
-    with right:
+    with b:
         st.markdown("""
-        <div class="sb-side">
-            <div class="sb-eyebrow">PRACTICE PRINCIPLE / 01</div>
-            <div class="sb-side-quote">
-                Test what you know. Discover what you can learn.
+        <div class="sb-quote">
+            <div class="sb-eyebrow">A BETTER WAY TO REVISE</div>
+            <div class="sb-quote-title">
+                Learn it.<br>Test it.<br>Remember it.
             </div>
-            <div class="sb-sub">
-                TOPIC-BASED · ADAPTABLE · REVISION-READY
+            <div class="sb-muted">
+                PERSONAL PRACTICE · CLEAR EXPLANATIONS
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.markdown("")
-        panel("STUDY TIP", "Try before you reveal",
-              "Attempt each question first, then read the answer and explanation.")
+        panel(
+            "STUDY TIP",
+            "Recall before review",
+            "Try answering each question yourself before checking the solution."
+        )
 
     if generate:
         if not topic.strip():
             st.warning("Please enter a topic first.")
         else:
-            outputs = []
+            results = []
             remaining = count
             start = 1
             failed = False
 
-            with st.spinner("Creating your practice set..."):
+            with st.spinner("Building your personalised quiz..."):
                 while remaining > 0:
                     batch = min(10, remaining)
 
                     prompt = f"""
-You are an accurate college-level tutor.
-Create exactly {batch} questions about: {topic}
+You are a careful college-level tutor.
+Create exactly {batch} questions about {topic}.
 Difficulty: {difficulty}
 Format: {qtype}
 Language: {language}
 Start numbering at {start}.
 
-For MCQs, provide options A, B, C, D, the correct answer
-and a short explanation.
-For short answers, provide a clear model answer.
-For mixed format, include both formats.
-Keep formatting readable. No introduction.
-Do not invent facts.
+For MCQs, include options A, B, C and D, the correct answer,
+and a brief explanation.
+For short-answer questions, include a model answer.
+For mixed format, include both types.
+Use readable headings and accurate facts. No long introduction.
 """
 
-                    result = ask_ai(prompt, max_tokens=4500)
+                    answer = ask_ai(prompt, max_tokens=4000)
 
-                    if not result:
+                    if not answer:
                         failed = True
                         break
 
-                    outputs.append(result)
+                    results.append(answer)
                     remaining -= batch
                     start += batch
 
-            if outputs:
-                combined = "\n\n".join(outputs)
+            if results:
+                combined = "\n\n".join(results)
                 st.session_state.last_quiz = combined
                 st.session_state.quiz_topic = topic
                 st.session_state.quiz_history.append({
@@ -825,13 +977,14 @@ Do not invent facts.
                 st.session_state.activity = f"Generated quiz: {topic}"
 
                 if failed:
-                    st.warning("Quiz partially generated. Available questions are shown.")
+                    st.warning("The quiz was only partially generated.")
                 else:
                     st.success("Your quiz is ready!")
 
     if st.session_state.last_quiz:
-        section("GENERATED MATERIAL", st.session_state.quiz_topic)
+        section("YOUR PRACTICE SET", st.session_state.quiz_topic)
         st.markdown(st.session_state.last_quiz)
+
         st.download_button(
             "Download quiz as TXT",
             data=st.session_state.last_quiz,
@@ -841,32 +994,25 @@ Do not invent facts.
         )
 
 
-# ---------- PDF NOTES ----------
+# ==================== PDF NOTES ====================
 
 def pdf_notes():
     page_header(
         "02 / ORGANISE",
         "Notes Studio",
-        "Convert readable PDF material into organised, student-friendly notes."
+        "Turn readable PDF study material into structured notes for revision."
     )
 
-    panel("DOCUMENT WORKSPACE", "Bring your study material",
-          "Upload your PDF and choose how you want your notes organised.")
-
-    uploaded = st.file_uploader("Upload study PDF", type=["pdf"])
-
-    style = st.selectbox(
-        "Notes format",
-        [
-            "Detailed notes with headings",
-            "Exam revision notes",
-            "Short summary",
-            "Question and answer format",
-            "Bullet-point notes"
-        ]
+    panel(
+        "DOCUMENT WORKSPACE",
+        "Start with your study material",
+        "Upload a PDF, choose a format and create notes you can download."
     )
-    language = st.selectbox(
-        "Output language", ["Simple English", "Hindi", "Hinglish"]
+
+    uploaded = st.file_uploader(
+        "Upload your study PDF",
+        type=["pdf"],
+        key="notes_pdf_upload"
     )
 
     if uploaded:
@@ -879,38 +1025,63 @@ def pdf_notes():
             if extracted:
                 st.session_state.pdf_text = extracted
                 st.session_state.notes_title = uploaded.name
-                st.success(f"PDF ready · {len(reader.pages)} pages")
+                st.success(
+                    f"PDF ready · {len(reader.pages)} pages detected"
+                )
             else:
                 st.warning(
-                    "Selectable text was not found. Scanned PDFs may need OCR."
+                    "No selectable text was found. Scanned PDFs may require OCR."
                 )
-        except Exception as error:
-            st.error(f"Could not read PDF: {error}")
+        except Exception:
+            st.error("Could not read this PDF. Please try another file.")
+
+    a, b = st.columns(2)
+
+    with a:
+        style = st.selectbox(
+            "Notes format",
+            [
+                "Detailed notes with headings",
+                "Exam revision notes",
+                "Short summary",
+                "Question and answer format",
+                "Bullet-point notes"
+            ],
+            key="notes_style"
+        )
+
+    with b:
+        language = st.selectbox(
+            "Output language",
+            ["Simple English", "Hindi", "Hinglish"],
+            key="notes_language"
+        )
 
     if st.button(
-        "▤ Create notes",
+        "▤ Generate study notes",
         type="primary",
         width="stretch"
     ):
         if not st.session_state.pdf_text:
-            st.warning("Please upload a readable PDF first.")
+            st.warning("Upload a readable PDF first.")
         else:
             prompt = f"""
 You are an educational note-making assistant.
-Create notes only from the source material below.
+Create notes using only the supplied source text.
 
-Style: {style}
+Format: {style}
 Language: {language}
 
-Use headings, subheadings and bullet points.
-Preserve key definitions, formulas, examples and facts.
-Explain concepts in student-friendly language.
-Do not invent details or claim to cover unseen material.
+Use clear headings, subheadings and bullet points.
+Preserve important definitions, formulas, examples and facts.
+Explain difficult ideas in student-friendly language.
+Do not invent facts or claim to cover material not present in the source.
 
-SOURCE:
+SOURCE TEXT:
 {st.session_state.pdf_text[:26000]}
 """
-            with st.spinner("Organising your notes..."):
+
+            with st.spinner("Creating organised study notes..."):
                 notes = ask_ai(prompt, max_tokens=6000)
 
             if notes:
@@ -924,7 +1095,7 @@ SOURCE:
                 st.success("Your notes are ready!")
 
     if st.session_state.last_notes:
-        section("YOUR DOCUMENT", "Ready for revision")
+        section("YOUR STUDY RESOURCE", "Ready for revision")
         st.markdown(st.session_state.last_notes)
 
         a, b = st.columns(2)
@@ -948,28 +1119,23 @@ SOURCE:
                     mime="application/pdf",
                     width="stretch"
                 )
-            except Exception as error:
-                st.error(f"PDF export failed: {error}")
+            except Exception:
+                st.error("PDF export failed. You can still download the TXT.")
 
-
-# ---------- STUDY CHAT ----------
+# ==================== STUDY CHAT ====================
 
 def study_chat():
     page_header(
         "03 / UNDERSTAND",
-        "Study Chat",
-        "Ask questions, explore examples and work through difficult concepts."
+        "Personal AI Tutor",
+        "Ask questions and get clear, step-by-step study explanations."
     )
 
-    st.markdown("""
-    <div class="sb-panel">
-        <div class="sb-panel-label">CONVERSATION SPACE</div>
-        <div class="sb-panel-title">Curiosity starts here.</div>
-        <div class="sb-sub">
-            Ask one question at a time for focused, clear explanations.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    panel(
+        "CONVERSATION SPACE",
+        "What would you like to understand?",
+        "Ask one question at a time for focused help with your studies."
+    )
 
     for message in st.session_state.chat:
         with st.chat_message(message["role"]):
@@ -979,7 +1145,8 @@ def study_chat():
 
     if prompt:
         st.session_state.chat.append({
-            "role": "user", "content": prompt
+            "role": "user",
+            "content": prompt
         })
 
         with st.chat_message("user"):
@@ -988,66 +1155,73 @@ def study_chat():
         messages = [{
             "role": "system",
             "content": (
-                "You are Study Buddy AI, a patient and accurate study tutor. "
-                "Explain clearly in the user's language. Show calculation "
-                "steps where needed and do not invent facts."
+                "You are Study Buddy AI, a patient and accurate tutor. "
+                "Explain in simple, clear language. Use examples and show "
+                "calculation steps when useful. Do not invent facts."
             )
         }]
         messages.extend(st.session_state.chat[-12:])
 
         with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
+            with st.spinner("Preparing your explanation..."):
                 answer = ask_ai(
-                    "",
-                    max_tokens=3000,
-                    messages=messages
+                    messages=messages,
+                    max_tokens=3000
                 )
 
             if answer:
                 st.markdown(answer)
                 st.session_state.chat.append({
-                    "role": "assistant", "content": answer
+                    "role": "assistant",
+                    "content": answer
                 })
                 st.session_state.activity = "Asked a question in Study Chat"
 
     if st.session_state.chat:
-        if st.button("Clear chat", width="stretch"):
+        if st.button("Clear conversation", width="stretch"):
             st.session_state.chat = []
             st.rerun()
 
 
-# ---------- PERFORMANCE ----------
+# ==================== PERFORMANCE ====================
 
 def performance():
     page_header(
         "04 / REFLECT",
-        "Your progress",
-        "Review the quizzes, notes and study activity created in this session."
+        "Progress Centre",
+        "Review your quiz sets, notes and study activity in this session."
     )
 
     quiz_count = len(st.session_state.quiz_history)
     notes_count = len(st.session_state.notes_history)
     chat_count = sum(
-        1 for message in st.session_state.chat
-        if message["role"] == "user"
+        1 for m in st.session_state.chat if m["role"] == "user"
     )
 
     a, b, c = st.columns(3)
+
     with a:
-        st.metric("Quiz sessions", quiz_count)
+        st.metric("Quiz sets", quiz_count)
     with b:
         st.metric("Notes created", notes_count)
     with c:
         st.metric("Questions asked", chat_count)
 
     section("ACTIVITY / 01", "Your latest work")
-    panel("MOST RECENT", st.session_state.activity,
-          "History is stored in the current session and may reset when the session restarts.")
+    panel(
+        "RECENT UPDATE",
+        "Learning activity",
+        st.session_state.activity
+    )
 
     section("PRACTICE / 02", "Quiz history")
 
     if st.session_state.quiz_history:
-        for i, item in enumerate(reversed(st.session_state.quiz_history[-10:])):
+        recent_quizzes = list(
+            reversed(st.session_state.quiz_history[-10:])
+        )
+
+        for i, item in enumerate(recent_quizzes):
             with st.expander(
                 f"{item['topic']} · {item['count']} questions · {item['date']}"
             ):
@@ -1057,15 +1231,19 @@ def performance():
                     data=item["content"],
                     file_name="study_buddy_quiz.txt",
                     mime="text/plain",
-                    key=f"quiz_history_{i}"
+                    key=f"history_quiz_{i}"
                 )
     else:
-        st.info("Your quiz history will appear here.")
+        st.info("Your generated quizzes will appear here.")
 
     section("RESOURCES / 03", "Notes history")
 
     if st.session_state.notes_history:
-        for i, item in enumerate(reversed(st.session_state.notes_history[-10:])):
+        recent_notes = list(
+            reversed(st.session_state.notes_history[-10:])
+        )
+
+        for i, item in enumerate(recent_notes):
             with st.expander(f"{item['title']} · {item['date']}"):
                 st.markdown(item["content"])
                 st.download_button(
@@ -1073,53 +1251,53 @@ def performance():
                     data=item["content"],
                     file_name="study_buddy_notes.txt",
                     mime="text/plain",
-                    key=f"notes_history_{i}"
+                    key=f"history_notes_{i}"
                 )
     else:
-        st.info("Your notes history will appear here.")
+        st.info("Your created notes will appear here.")
 
 
-# ---------- SETTINGS ----------
+# ==================== SETTINGS ====================
 
 def settings():
     page_header(
         "05 / SETTINGS",
-        "Your workspace",
-        "Review app information and manage your current session."
+        "Workspace settings",
+        "Review your app configuration and manage current session data."
     )
 
     panel(
-        "PRODUCT IDENTITY",
+        "PRODUCT",
         "Study Buddy AI",
-        "An AI learning workspace for quizzes, PDF notes and study conversations."
+        "A learning workspace for AI quizzes, PDF notes and study conversations."
     )
 
     panel(
-        "AI MODEL",
+        "AI ENGINE",
         MODEL,
-        "Powered by Groq. Your API key must be configured privately in Streamlit Secrets."
+        "Uses Groq. Configure GROQ_API_KEY privately in Streamlit Cloud Secrets."
     )
 
     panel(
-        "SESSION DATA",
-        "About your history",
-        "Quiz history, notes and chat messages are kept in the active session. "
-        "They are not a permanent database and may reset when the session restarts."
+        "SESSION HISTORY",
+        "Temporary session storage",
+        "Your current quiz, notes and chat history are held in the active "
+        "session and are not a permanent database."
     )
 
-    section("DANGER ZONE", "Clear session history")
+    section("SESSION MANAGEMENT", "Clear current history")
 
     confirm = st.checkbox(
-        "I understand this will clear my current quiz, notes and chat history."
+        "I understand that clearing data removes my current quiz, notes and chat history."
     )
 
     if st.button(
-        "Clear session data",
+        "Clear session history",
         type="primary",
         width="stretch"
     ):
         if not confirm:
-            st.warning("Please confirm before clearing session data.")
+            st.warning("Confirm the checkbox before clearing your data.")
         else:
             for key, value in {
                 "chat": [],
@@ -1134,11 +1312,11 @@ def settings():
             }.items():
                 st.session_state[key] = value
 
-            st.success("Current session data cleared.")
+            st.success("Session history cleared.")
             st.rerun()
 
 
-# ---------- PAGE ROUTER ----------
+# ==================== PAGE ROUTER ====================
 
 if st.session_state.page == "Dashboard":
     dashboard()
@@ -1153,9 +1331,11 @@ elif st.session_state.page == "Performance":
 elif st.session_state.page == "Settings":
     settings()
 
+# ==================== FOOTER ====================
+
 st.markdown("""
 <div class="sb-footer">
-    <span>STUDY BUDDY AI</span>
-    <span>LEARN · PRACTISE · GROW</span>
+    <span>STUDY BUDDY AI · PERSONAL LEARNING WORKSPACE</span>
+    <span>LEARN WITH PURPOSE · GROW WITH CONFIDENCE</span>
 </div>
 """, unsafe_allow_html=True)
