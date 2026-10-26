@@ -1,1763 +1,1128 @@
 import streamlit as st
-import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
-from datetime import date
+from groq import Groq
+from pypdf import PdfReader
+from io import BytesIO
+from datetime import datetime
+from reportlab.lib.pagesizes import A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER
+from xml.sax.saxutils import escape
 
 st.set_page_config(
-    page_title="Campus Intelligence",
+    page_title="Study Buddy AI",
     page_icon="🎓",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
+MODEL = "openai/gpt-oss-20b"
+
+DEFAULTS = {
+    "page": "Dashboard",
+    "generated_quizzes": 0,
+    "notes_created": 0,
+    "chat_messages": [],
+    "last_quiz": "",
+    "last_notes": "",
+    "last_activity": "Ready to study",
+    "quiz_history": [],
+    "notes_history": [],
+    "pdf_text": "",
+    "quiz_topic": "",
+    "quiz_partial": False
+}
+
+for key, value in DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+:root {
+    --green: #087f5b;
+    --green-dark: #104c46;
+    --mint: #b5f4d8;
+    --ink: #17233c;
+    --muted: #75819a;
+    --line: #e6ebf2;
 }
 
 .stApp {
-    background: #f5f7fb;
+    background:
+        radial-gradient(ellipse at 0% 0%, rgba(18,168,121,.07), transparent 32%),
+        radial-gradient(ellipse at 100% 5%, rgba(42,144,113,.05), transparent 28%),
+        #f5f7fb;
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
 }
 
-section[data-testid="stSidebar"] {
-    background: #111827;
-    border-right: 1px solid #273244;
+html, body, [class*="css"] {
+    font-family: 'DM Sans', sans-serif;
 }
 
-section[data-testid="stSidebar"] * {
-    color: #f3f4f6;
+h1, h2, h3, h4 {
+    font-family: 'Manrope', sans-serif !important;
+    color: var(--ink);
+    letter-spacing: -.6px;
 }
 
 .block-container {
+    max-width: 1450px;
     padding-top: 2rem;
     padding-bottom: 3rem;
-    max-width: 1400px;
+}
+
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #123b38 0%, #104c46 60%, #087f5b 100%);
+    border-right: 1px solid rgba(255,255,255,.12);
+}
+
+[data-testid="stSidebar"] * {
+    color: #f3fff9 !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stRadio"] label {
+    padding: 10px 12px;
+    border-radius: 12px;
+    transition: .2s ease;
+}
+
+[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+    background: rgba(255,255,255,.12);
+}
+
+[data-testid="stSidebar"] hr {
+    border-color: rgba(255,255,255,.17);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 3px 25px;
+}
+
+.brand-icon {
+    width: 49px;
+    height: 49px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 25px;
+    background: linear-gradient(135deg, #a8f4d2, #36c996);
+    box-shadow: 0 8px 24px rgba(0,0,0,.14);
+}
+
+.brand-name {
+    font-family: 'Manrope', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.brand-caption {
+    font-size: 10px;
+    color: #b7e5d4;
+    letter-spacing: 1.3px;
+    text-transform: uppercase;
+    margin-top: 4px;
 }
 
 .hero {
-    padding: 35px;
-    border-radius: 24px;
-    background: linear-gradient(135deg, #111827, #1e293b);
-    color: white;
+    position: relative;
+    overflow: hidden;
+    padding: 36px;
+    border-radius: 27px;
+    background:
+        radial-gradient(ellipse at 95% 0%, rgba(164,255,213,.17), transparent 35%),
+        linear-gradient(120deg, #153e3e 0%, #116c58 58%, #128568 100%);
+    box-shadow: 0 18px 45px rgba(16,75,66,.15);
     margin-bottom: 25px;
-    box-shadow: 0 12px 35px rgba(15, 23, 42, 0.18);
 }
 
-.hero-small {
-    color: #94a3b8;
-    font-size: 14px;
-    margin-bottom: 8px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
+.hero:after {
+    content: "";
+    position: absolute;
+    width: 270px;
+    height: 270px;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 50%;
+    right: -65px;
+    top: -100px;
+    box-shadow: 0 0 0 35px rgba(255,255,255,.035),
+                0 0 0 70px rgba(255,255,255,.025);
+    pointer-events: none;
 }
 
 .hero h1 {
-    font-size: 42px;
-    margin: 0;
+    color: #ffffff !important;
+    font-size: clamp(29px, 3.7vw, 47px);
+    line-height: 1.18;
     font-weight: 800;
+    margin: 17px 0 14px;
+    letter-spacing: -1.2px;
 }
 
 .hero p {
-    color: #cbd5e1;
-    font-size: 16px;
-    margin-top: 10px;
+    color: #d7eee5;
+    font-size: 15px;
+    line-height: 1.8;
+    max-width: 650px;
 }
 
-.metric-card {
-    background: white;
-    padding: 22px;
-    border-radius: 18px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
-    min-height: 125px;
-}
-
-.metric-label {
-    color: #64748b;
-    font-size: 13px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-}
-
-.metric-value {
-    color: #111827;
-    font-size: 28px;
+.eyebrow {
+    font-size: 11px;
     font-weight: 800;
-    margin-top: 8px;
+    letter-spacing: 2px;
+    color: #9cf0cf;
+    text-transform: uppercase;
+}
+
+.hero-pill {
+    display: inline-block;
+    padding: 7px 12px;
+    border: 1px solid rgba(255,255,255,.23);
+    background: rgba(255,255,255,.09);
+    border-radius: 30px;
+    color: #f0fff8;
+    font-size: 11px;
+    letter-spacing: .5px;
 }
 
 .section-title {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 800;
     font-size: 22px;
-    font-weight: 800;
-    color: #111827;
-    margin-top: 25px;
-    margin-bottom: 15px;
+    margin: 27px 0 5px;
+    color: #17233c;
 }
 
-.insight-card {
-    background: white;
-    padding: 24px;
+.section-subtitle {
+    font-size: 13px;
+    color: #75819a;
+    margin-bottom: 18px;
+}
+
+.metric-card {
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
     border-radius: 20px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 7px 25px rgba(15, 23, 42, 0.06);
-    height: 100%;
+    padding: 21px;
+    min-height: 142px;
+    box-shadow: 0 5px 22px rgba(30,48,80,.035);
+    transition: transform .22s, box-shadow .22s;
 }
 
-.insight-label {
-    font-size: 12px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: .8px;
+.metric-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(30,48,80,.08);
+    border-color: #c6e9da;
 }
 
-.insight-value {
+.metric-icon {
     font-size: 23px;
-    font-weight: 800;
-    color: #111827;
-    margin-top: 8px;
+    margin-bottom: 12px;
 }
 
-.insight-text {
-    color: #64748b;
-    font-size: 13px;
+.metric-value {
+    font-family: 'Manrope', sans-serif;
+    font-size: 31px;
+    font-weight: 800;
+    color: #163d37;
+    line-height: 1.2;
+}
+
+.metric-label {
+    color: #75819a;
+    font-size: 12px;
     margin-top: 7px;
 }
 
-.pulse {
-    padding: 24px;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    border: 1px solid #e2e8f0;
-    margin: 20px 0;
+.feature-card {
+    min-height: 190px;
+    padding: 23px;
+    border: 1px solid #e6ebf2;
+    background: #ffffff;
+    border-radius: 21px;
+    box-shadow: 0 5px 20px rgba(30,48,80,.035);
+    transition: transform .22s, box-shadow .22s;
 }
 
-.pulse-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #64748b;
-    letter-spacing: 1px;
+.feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 13px 30px rgba(30,48,80,.075);
+    border-color: #c5e9da;
 }
 
-.pulse-status {
+.feature-icon {
     font-size: 30px;
-    font-weight: 800;
-    color: #111827;
-    margin-top: 5px;
+    margin-bottom: 14px;
 }
 
-.pulse-description {
-    color: #64748b;
-    margin-top: 5px;
-}
-
-.health-card {
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    padding: 25px;
-    border-radius: 20px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 7px 25px rgba(15, 23, 42, 0.06);
-    text-align: center;
-}
-
-.health-score {
-    font-size: 52px;
-    font-weight: 800;
-    color: #111827;
-    line-height: 1;
-}
-
-.health-label {
-    font-size: 13px;
-    color: #64748b;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    margin-bottom: 12px;
-}
-
-.health-message {
-    color: #64748b;
-    font-size: 13px;
-    margin-top: 10px;
-}
-
-.top-issue {
-    background: linear-gradient(135deg, #ffffff, #f8fafc);
-    padding: 28px;
-    border-radius: 20px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 7px 25px rgba(15, 23, 42, 0.06);
-}
-
-.top-issue-title {
-    font-size: 13px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-}
-
-.top-issue-name {
-    font-size: 30px;
-    font-weight: 800;
-    color: #111827;
-    margin-top: 8px;
-}
-
-.top-issue-info {
-    color: #64748b;
-    margin-top: 8px;
-    font-size: 14px;
-}
-
-.recommendation {
-    background: white;
-    padding: 22px;
-    border-radius: 18px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
-    margin-bottom: 12px;
-}
-
-.recommendation-title {
-    font-weight: 800;
-    color: #111827;
-    font-size: 16px;
-}
-
-.recommendation-text {
-    color: #64748b;
-    font-size: 13px;
-    margin-top: 7px;
-}
-
-.priority-card {
-    background: white;
-    padding: 20px;
-    border-radius: 18px;
-    border: 1px solid #e5e7eb;
-    margin-bottom: 12px;
-    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.05);
-}
-
-.hotspot {
-    background: white;
-    padding: 20px;
-    border-radius: 18px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 5px 18px rgba(15, 23, 42, 0.05);
-}
-
-.hotspot-title {
-    font-weight: 800;
+.feature-card h3 {
     font-size: 17px;
-    color: #111827;
+    margin-bottom: 8px;
+    color: #17233c;
 }
 
-.hotspot-number {
-    font-size: 26px;
-    font-weight: 800;
-    color: #111827;
-}
-
-.hotspot-small {
-    color: #64748b;
+.feature-card p {
+    color: #75819a;
     font-size: 13px;
+    line-height: 1.7;
 }
 
-.form-box {
-    background: white;
-    padding: 30px;
-    border-radius: 22px;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+.panel {
+    padding: 25px;
+    border-radius: 21px;
+    background: #ffffff;
+    border: 1px solid #e6ebf2;
+    box-shadow: 0 6px 24px rgba(30,48,80,.035);
+    margin-bottom: 18px;
 }
 
-.tip-box {
-    background: #eef2ff;
-    padding: 18px;
-    border-radius: 16px;
-    border-left: 4px solid #6366f1;
-    color: #3730a3;
+.panel-title {
+    font-family: 'Manrope', sans-serif;
+    font-size: 19px;
+    font-weight: 800;
+    color: #17233c;
+    margin-bottom: 5px;
+}
+
+.panel-subtitle {
+    color: #75819a;
+    font-size: 13px;
+    margin-bottom: 20px;
+}
+
+.status-chip {
+    display: inline-block;
+    padding: 6px 11px;
+    border-radius: 30px;
+    font-size: 10px;
+    font-weight: 800;
+    background: #e6f8f0;
+    color: #087f5b;
+    letter-spacing: .7px;
+}
+
+.stButton > button {
+    border-radius: 12px;
+    min-height: 43px;
+    font-weight: 700;
+    border: 1px solid #e0e8e8;
+    transition: .2s;
+}
+
+.stButton > button[kind="primary"] {
+    background: linear-gradient(110deg, #087f5b, #12a879);
+    color: white;
+    border: 0;
+    box-shadow: 0 6px 18px rgba(8,127,91,.17);
+}
+
+.stButton > button:hover {
+    transform: translateY(-1px);
+    border-color: #12a879;
+}
+
+.stTextInput input,
+.stTextArea textarea,
+.stSelectbox div[data-baseweb="select"] {
+    border-radius: 11px !important;
+}
+
+[data-testid="stFileUploader"] {
+    background: #f8fbfa;
+    border: 1px dashed #b8d8ce;
+    border-radius: 15px;
+    padding: 10px;
+}
+
+[data-testid="stChatMessage"] {
+    background: #ffffff;
+    border: 1px solid #e8edf4;
+    border-radius: 17px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+div[data-testid="stMetric"] {
+    background: #ffffff;
+    padding: 15px;
+    border: 1px solid #e6ebf2;
+    border-radius: 15px;
+}
+
+.stProgress > div > div > div > div {
+    background: linear-gradient(90deg, #087f5b, #28c79a);
+}
+
+hr {
+    border-color: #e6ebf2;
 }
 
 .footer {
     text-align: center;
-    color: #94a3b8;
-    padding: 25px;
-    font-size: 12px;
+    color: #8792a7;
+    font-size: 11px;
+    padding: 28px 0 0;
+    letter-spacing: .5px;
 }
 
-div.stButton > button {
-    border-radius: 12px;
-    font-weight: 700;
-    min-height: 45px;
-}
+@media (max-width: 700px) {
+    .block-container {
+        padding-top: 1rem;
+    }
 
+    .hero {
+        padding: 24px 20px;
+        border-radius: 20px;
+    }
+
+    .panel {
+        padding: 18px;
+    }
+
+    .metric-card {
+        padding: 16px;
+    }
+
+    .feature-card {
+        min-height: auto;
+    }
+}
 </style>
 """, unsafe_allow_html=True)
 
 
-# ---------------- GOOGLE SHEETS ----------------
-
-scope = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive"
-]
-
-credentials = Credentials.from_service_account_info(
-    st.secrets["gcp_service_account"],
-    scopes=scope
-)
-
-client = gspread.authorize(credentials)
-sheet = client.open("Campus Reports").sheet1
+def get_client():
+    try:
+        api_key = st.secrets.get("GROQ_API_KEY", "")
+        if not api_key:
+            st.error("GROQ_API_KEY missing hai. Streamlit Cloud → Settings → Secrets mein API key add karo.")
+            return None
+        return Groq(api_key=api_key)
+    except Exception as e:
+        st.error(f"AI setup error: {e}")
+        return None
 
 
-# ---------------- DATA ----------------
-
-def load_data():
-
-    records = sheet.get_all_records()
-
-    columns = [
-        "Problem",
-        "Location",
-        "Time",
-        "Severity",
-        "Description",
-        "Date"
-    ]
-
-    if not records:
-        return pd.DataFrame(columns=columns)
-
-    df = pd.DataFrame(records)
-
-    for col in columns:
-        if col not in df.columns:
-            df[col] = ""
-
-    df = df[columns]
-
-    df["Severity"] = pd.to_numeric(
-        df["Severity"],
-        errors="coerce"
-    )
-
-    df["Date"] = pd.to_datetime(
-        df["Date"],
-        errors="coerce",
-        dayfirst=True
-    )
-
-    df = df.dropna(
-        subset=["Problem", "Location", "Severity"]
-    )
-
-    for col in ["Problem", "Location", "Time", "Description"]:
-        df[col] = (
-            df[col]
-            .astype(str)
-            .str.strip()
+def ask_ai(prompt, max_tokens=5000, temperature=0.4):
+    client = get_client()
+    if client is None:
+        return None
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature
         )
-
-    return df
-
-
-df = load_data()
-
-
-# ---------------- FUNCTIONS ----------------
-
-def get_priority(score):
-
-    if score >= 16:
-        return "🔴 Critical"
-
-    if score >= 11:
-        return "🟠 High"
-
-    if score >= 6:
-        return "🟡 Medium"
-
-    return "🟢 Low"
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"AI request failed: {e}")
+        return None
 
 
-def calculate_priority(data):
+def extract_pdf_text(file):
+    try:
+        reader = PdfReader(file)
+        return "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+    except Exception as e:
+        st.error(f"PDF read error: {e}")
+        return ""
 
-    if data.empty:
-        return pd.DataFrame()
 
-    result = (
-        data.groupby("Problem")
-        .agg(
-            Reports=("Problem", "count"),
-            Average_Severity=("Severity", "mean")
-        )
+def make_pdf(text):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=45,
+        leftMargin=45,
+        topMargin=45,
+        bottomMargin=45
     )
 
-    max_reports = result["Reports"].max()
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(
+        name="BrandTitle",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=20,
+        leading=26,
+        textColor=colors.HexColor("#087f5b"),
+        alignment=TA_CENTER,
+        spaceAfter=20
+    ))
+    styles.add(ParagraphStyle(
+        name="NoteHeading",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=13,
+        leading=17,
+        textColor=colors.HexColor("#087f5b"),
+        spaceBefore=12,
+        spaceAfter=7
+    ))
+    styles.add(ParagraphStyle(
+        name="NoteBody",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9.5,
+        leading=14,
+        spaceAfter=7
+    ))
 
-    if max_reports == 0:
-        max_reports = 1
+    story = [Paragraph("STUDY BUDDY AI", styles["BrandTitle"])]
 
-    result["Frequency Score"] = (
-        result["Reports"] / max_reports
-    ) * 10
+    for line in text.splitlines():
+        line = line.strip()
 
-    result["Severity Score"] = (
-        result["Average_Severity"] / 5
-    ) * 10
-
-    result["Priority Score"] = (
-        result["Frequency Score"] * 0.5
-        + result["Severity Score"] * 0.5
-    )
-
-    result["Priority"] = (
-        result["Priority Score"]
-        .apply(get_priority)
-    )
-
-    return result.sort_values(
-        "Priority Score",
-        ascending=False
-    )
-
-
-def campus_health_score(data):
-
-    if data.empty:
-        return 100, "No reports available yet."
-
-    priority = calculate_priority(data)
-
-    if priority.empty:
-        return 100, "No reports available yet."
-
-    average_severity = data["Severity"].mean()
-
-    issue_count = len(data)
-
-    high_priority_count = len(
-        priority[
-            priority["Priority Score"] >= 11
-        ]
-    )
-
-    severity_part = (
-        average_severity / 5
-    ) * 60
-
-    issue_part = min(
-        issue_count * 2,
-        20
-    )
-
-    priority_part = min(
-        high_priority_count * 5,
-        20
-    )
-
-    problem_pressure = (
-        severity_part
-        + issue_part
-        + priority_part
-    )
-
-    score = round(
-        max(
-            0,
-            100 - problem_pressure
-        )
-    )
-
-    if score >= 80:
-        message = "Campus conditions look relatively healthy."
-
-    elif score >= 60:
-        message = "Campus conditions are generally okay but need monitoring."
-
-    elif score >= 40:
-        message = "Several issues need attention."
-
-    else:
-        message = "Multiple reported issues require focused attention."
-
-    return score, message
-
-
-def campus_pulse(priority_data):
-
-    if priority_data.empty:
-        return "🟢 Stable", "Not enough data to determine campus status."
-
-    highest = priority_data["Priority Score"].max()
-
-    if highest >= 16:
-        return (
-            "🔴 Critical",
-            "Several reported issues require immediate attention."
-        )
-
-    if highest >= 11:
-        return (
-            "🟠 Needs Attention",
-            "Some reported issues have high combined frequency and severity."
-        )
-
-    if highest >= 6:
-        return (
-            "🟡 Monitor",
-            "Reported issues are present and should be monitored."
-        )
-
-    return (
-        "🟢 Stable",
-        "Current reported issues have relatively low priority scores."
-    )
-
-
-def trend_message(data):
-
-    trend = data.dropna(subset=["Date"]).copy()
-
-    if trend.empty:
-        return "Add valid report dates to view the reporting trend."
-
-    daily = (
-        trend.groupby(
-            trend["Date"].dt.date
-        )
-        .size()
-    )
-
-    if len(daily) < 2:
-        return "More dated reports are needed to identify a trend."
-
-    if daily.iloc[-1] > daily.iloc[0]:
-        return "Reporting activity is currently increasing."
-
-    if daily.iloc[-1] < daily.iloc[0]:
-        return "Reporting activity is currently decreasing."
-
-    return "Reporting activity is currently stable."
-
-
-def get_recommendation(problem):
-
-    recommendations = {
-
-        "Wi-Fi":
-            (
-                "IT team should check network connectivity, "
-                "access points and bandwidth in the affected area."
-            ),
-
-        "Canteen":
-            (
-                "Queue management and service capacity should be "
-                "reviewed during the busiest reporting period."
-            ),
-
-        "Lab PC":
-            (
-                "Technical team should inspect slow or faulty "
-                "computers and check system performance."
-            ),
-
-        "Library":
-            (
-                "Seating availability and library resources should "
-                "be reviewed during peak usage hours."
-            ),
-
-        "Water":
-            (
-                "Facilities team should inspect water supply points "
-                "and identify recurring supply issues."
-            ),
-
-        "Electricity":
-            (
-                "Maintenance team should inspect electrical "
-                "infrastructure in the affected location."
-            ),
-
-        "Cleanliness":
-            (
-                "Cleaning frequency and maintenance schedules "
-                "should be reviewed."
-            ),
-
-        "Other":
-            (
-                "Administration should review the reported issue "
-                "and identify an appropriate solution."
+        if not line:
+            story.append(Spacer(1, 5))
+        elif line.startswith("#"):
+            story.append(
+                Paragraph(
+                    escape(line.lstrip("#").strip()),
+                    styles["NoteHeading"]
+                )
             )
-    }
+        elif line.startswith(("- ", "* ", "• ")):
+            story.append(
+                Paragraph(
+                    "&#8226; " + escape(line[2:].strip()),
+                    styles["NoteBody"]
+                )
+            )
+        else:
+            story.append(Paragraph(escape(line), styles["NoteBody"]))
 
-    return recommendations.get(
-        problem,
-        "Administration should review this issue and identify an appropriate solution."
-    )
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
-# ---------------- SIDEBAR ----------------
-
-st.sidebar.markdown(
-    """
-    <div style="padding:10px 0 20px 0;">
-        <div style="font-size:28px;">🎓</div>
-        <div style="font-size:20px;font-weight:800;">
-            Campus Intelligence
-        </div>
-        <div style="font-size:12px;color:#94a3b8;">
-            Turning reports into insights
-        </div>
+def show_heading(title, subtitle):
+    st.markdown(f"""
+    <div style="margin-bottom:24px">
+      <div class="eyebrow" style="color:#087f5b">STUDY BUDDY AI / WORKSPACE</div>
+      <h1 style="font-size:32px;margin:9px 0 6px">{escape(title)}</h1>
+      <div style="color:#75819a;font-size:14px">{escape(subtitle)}</div>
     </div>
-    """,
-    unsafe_allow_html=True
-)
-
-page = st.sidebar.radio(
-    "EXPLORE",
-    [
-        "🏠 Dashboard",
-        "📊 Analysis",
-        "📝 Report Problem",
-        "💡 Insights"
-    ]
-)
+    """, unsafe_allow_html=True)
 
 
-# ---------------- FILTERS ----------------
+def metric_card(icon, value, label):
+    st.markdown(f"""
+    <div class="metric-card">
+      <div class="metric-icon">{icon}</div>
+      <div class="metric-value">{value}</div>
+      <div class="metric-label">{escape(label)}</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-filtered_df = df.copy()
 
-if not df.empty:
+def feature_card(icon, title, description):
+    st.markdown(f"""
+    <div class="feature-card">
+      <div class="feature-icon">{icon}</div>
+      <h3>{escape(title)}</h3>
+      <p>{escape(description)}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 🔎 DATA FILTERS")
 
-    problems = sorted(
-        df["Problem"].unique().tolist()
+with st.sidebar:
+    st.markdown("""
+    <div class="brand">
+      <div class="brand-icon">🎓</div>
+      <div>
+        <div class="brand-name">Study Buddy AI</div>
+        <div class="brand-caption">Your AI Study Companion</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(
+        '<div style="font-size:10px;letter-spacing:1.8px;color:#b7e5d4;margin:8px 0 10px">NAVIGATION</div>',
+        unsafe_allow_html=True
     )
 
-    locations = sorted(
-        df["Location"].unique().tolist()
-    )
-
-    selected_problems = st.sidebar.multiselect(
-        "Problem",
-        problems
-    )
-
-    selected_locations = st.sidebar.multiselect(
-        "Location",
-        locations
-    )
-
-    severity_range = st.sidebar.slider(
-        "Severity",
-        1,
-        5,
-        (1, 5)
-    )
-
-    if selected_problems:
-        filtered_df = filtered_df[
-            filtered_df["Problem"].isin(
-                selected_problems
-            )
-        ]
-
-    if selected_locations:
-        filtered_df = filtered_df[
-            filtered_df["Location"].isin(
-                selected_locations
-            )
-        ]
-
-    filtered_df = filtered_df[
-        filtered_df["Severity"].between(
-            severity_range[0],
-            severity_range[1]
-        )
+    pages = [
+        "Dashboard",
+        "AI Quiz",
+        "PDF Notes",
+        "Study Chat",
+        "Performance",
+        "Settings"
     ]
 
-st.sidebar.markdown("---")
-
-st.sidebar.caption(
-    "Anonymous student reporting • Data-driven analysis"
-)
-
-
-# ============================================================
-# DASHBOARD
-# ============================================================
-
-if page == "🏠 Dashboard":
-
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-small">CAMPUS INTELLIGENCE PLATFORM</div>
-            <h1>Campus Problem Analysis</h1>
-            <p>
-                Turning everyday campus problems into actionable insights.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    selected = st.radio(
+        "Navigation",
+        pages,
+        index=pages.index(st.session_state.page),
+        label_visibility="collapsed"
     )
+    st.session_state.page = selected
 
-    if df.empty:
-        st.info(
-            "No reports available yet. Submit the first campus report!"
-        )
-        st.stop()
+    st.markdown("---")
+    st.markdown("""
+    <div style="padding:15px;background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.12);border-radius:15px">
+      <div style="font-size:12px;font-weight:800">✦ YOUR AI STUDY SPACE</div>
+      <div style="font-size:11px;color:#c2e6d8;margin-top:7px;line-height:1.7">
+        Learn smarter. Practise better. Make every study session count.
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    if filtered_df.empty:
-        st.warning(
-            "No reports match the selected filters."
-        )
-        st.stop()
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    st.caption("Powered by Groq AI")
 
-    priority_data = calculate_priority(filtered_df)
 
-    pulse, pulse_text = campus_pulse(priority_data)
+if st.session_state.page == "Dashboard":
 
-    # Campus Pulse
+    st.markdown("""
+    <div class="hero">
+      <div class="hero-pill">✦ YOUR PERSONAL AI STUDY SPACE</div>
+      <div style="height:16px"></div>
+      <div class="eyebrow">LEARN SMARTER · GROW FASTER</div>
+      <h1>Make every study<br>session count.</h1>
+      <p>Your personal AI workspace for quizzes, clear notes and doubt solving. Turn study time into real progress.</p>
+      <div class="status-chip">✦ BUILT FOR YOUR LEARNING JOURNEY</div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown(
-        f"""
-        <div class="pulse">
-            <div class="pulse-title">CAMPUS PULSE</div>
-            <div class="pulse-status">{pulse}</div>
-            <div class="pulse-description">
-                {pulse_text}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # ---------------- CAMPUS HEALTH ----------------
-
-    health_score, health_message = campus_health_score(
-        filtered_df
-    )
-
-    st.markdown(
-        '<div class="section-title">🩺 Campus Health</div>',
-        unsafe_allow_html=True
-    )
-
-    health_col1, health_col2 = st.columns([1, 2])
-
-    with health_col1:
-
-        st.markdown(
-            f"""
-            <div class="health-card">
-                <div class="health-label">
-                    OVERALL CAMPUS HEALTH
-                </div>
-                <div class="health-score">
-                    {health_score}
-                    <span style="font-size:20px;color:#64748b;">
-                        /100
-                    </span>
-                </div>
-                <div class="health-message">
-                    {health_message}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with health_col2:
-
-        st.markdown(
-            f"""
-            <div class="top-issue">
-                <div class="top-issue-title">
-                    🏆 TOP CAMPUS ISSUE
-                </div>
-                <div class="top-issue-name">
-                    {priority_data.index[0]}
-                </div>
-                <div class="top-issue-info">
-                    Priority: <b>{priority_data.iloc[0]["Priority"]}</b>
-                    &nbsp; • &nbsp;
-                    Priority Score:
-                    <b>{priority_data.iloc[0]["Priority Score"]:.2f}</b>
-                    &nbsp; • &nbsp;
-                    Reports:
-                    <b>{int(priority_data.iloc[0]["Reports"])}</b>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # Metrics
-
-    st.markdown(
-        '<div class="section-title">📌 Campus Snapshot</div>',
-        unsafe_allow_html=True
-    )
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-label">Total Reports</div>
-                <div class="metric-value">
-                    {len(filtered_df)}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with col2:
-
-        avg = filtered_df["Severity"].mean()
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-label">Average Severity</div>
-                <div class="metric-value">
-                    {avg:.1f}
-                    <span style="font-size:15px;color:#64748b;">
-                        / 5
-                    </span>
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with col3:
-
-        top_problem = (
-            filtered_df["Problem"]
-            .value_counts()
-            .idxmax()
-        )
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-label">Top Issue</div>
-                <div class="metric-value" style="font-size:22px;">
-                    {top_problem}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with col4:
-
-        location_count = (
-            filtered_df["Location"]
-            .nunique()
-        )
-
-        st.markdown(
-            f"""
-            <div class="metric-card">
-                <div class="metric-label">Affected Areas</div>
-                <div class="metric-value">
-                    {location_count}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # Problem of week
-
-    st.markdown(
-        '<div class="section-title">🏆 Problem of the Week</div>',
-        unsafe_allow_html=True
-    )
-
-    top = priority_data.iloc[0]
+    st.markdown('<div class="section-title">Your study overview</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Your learning activity at a glance.</div>', unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns(3)
 
     with c1:
-
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Highest Priority
-                </div>
-                <div class="insight-value">
-                    {priority_data.index[0]}
-                </div>
-                <div class="insight-text">
-                    {top["Priority"]}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        metric_card("🧠", st.session_state.generated_quizzes, "Quizzes generated")
 
     with c2:
-
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Priority Score
-                </div>
-                <div class="insight-value">
-                    {top["Priority Score"]:.2f}
-                </div>
-                <div class="insight-text">
-                    Based on frequency + severity
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        metric_card("📚", st.session_state.notes_created, "Notes created")
 
     with c3:
+        metric_card("💬", len(st.session_state.chat_messages), "Chat messages")
 
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Reports
-                </div>
-                <div class="insight-value">
-                    {int(top["Reports"])}
-                </div>
-                <div class="insight-text">
-                    Student reports for this issue
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    st.markdown('<div class="section-title">Explore your AI toolkit</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-subtitle">Everything you need to study smarter, in one place.</div>', unsafe_allow_html=True)
 
-    # Priority Radar
-
-    st.markdown(
-        '<div class="section-title">🚨 Priority Radar</div>',
-        unsafe_allow_html=True
-    )
-
-    display_priority = priority_data.copy()
-
-    display_priority = display_priority[
-        [
-            "Reports",
-            "Average_Severity",
-            "Priority Score",
-            "Priority"
-        ]
-    ]
-
-    st.dataframe(
-        display_priority.round(2),
-        use_container_width=True
-    )
-
-    # Charts
-
-    st.markdown(
-        '<div class="section-title">📊 Campus Overview</div>',
-        unsafe_allow_html=True
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.markdown("#### 📌 Problem Frequency")
-
-        counts = (
-            filtered_df["Problem"]
-            .value_counts()
-            .sort_values()
-        )
-
-        st.bar_chart(counts)
-
-    with col2:
-
-        st.markdown("#### ⚠️ Severity Distribution")
-
-        severity = (
-            filtered_df["Severity"]
-            .value_counts()
-            .sort_index()
-        )
-
-        st.bar_chart(severity)
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-
-        st.markdown("#### 📍 Campus Hotspots")
-
-        location_counts = (
-            filtered_df["Location"]
-            .value_counts()
-            .head(5)
-        )
-
-        for location, count in location_counts.items():
-
-            avg_location = (
-                filtered_df[
-                    filtered_df["Location"] == location
-                ]["Severity"]
-                .mean()
-            )
-
-            st.markdown(
-                f"""
-                <div class="hotspot" style="margin-bottom:10px;">
-                    <div class="hotspot-title">
-                        📍 {location}
-                    </div>
-                    <div class="hotspot-number">
-                        {count}
-                    </div>
-                    <div class="hotspot-small">
-                        reports • Avg severity
-                        {avg_location:.1f}/5
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-
-    with col2:
-
-        st.markdown("#### 🕐 When Are Problems Reported?")
-
-        time_counts = (
-            filtered_df["Time"]
-            .value_counts()
-        )
-
-        st.bar_chart(time_counts)
-
-    # ---------------- SMART RECOMMENDATION ----------------
-
-    st.markdown(
-        '<div class="section-title">💡 Smart Recommendation</div>',
-        unsafe_allow_html=True
-    )
-
-    top_problem = priority_data.index[0]
-
-    recommendation = get_recommendation(
-        top_problem
-    )
-
-    st.markdown(
-        f"""
-        <div class="recommendation">
-            <div class="recommendation-title">
-                Focus Area: {top_problem}
-            </div>
-            <div class="recommendation-text">
-                {recommendation}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Trend
-
-    st.markdown(
-        '<div class="section-title">📈 Campus Trend</div>',
-        unsafe_allow_html=True
-    )
-
-    trend_df = filtered_df.dropna(
-        subset=["Date"]
-    ).copy()
-
-    if not trend_df.empty:
-
-        trend_df["Date"] = pd.to_datetime(
-            trend_df["Date"]
-        )
-
-        daily = (
-            trend_df.groupby("Date")
-            .size()
-            .rename("Reports")
-        )
-
-        st.line_chart(daily)
-
-        st.markdown(
-            f"""
-            <div class="tip-box">
-                <b>Trend Insight</b><br>
-                {trend_message(filtered_df)}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    else:
-
-        st.info(
-            "Trend will appear when reports have valid dates."
-        )
-
-
-# ============================================================
-# ANALYSIS
-# ============================================================
-
-elif page == "📊 Analysis":
-
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-small">DATA EXPLORATION</div>
-            <h1>Detailed Analysis</h1>
-            <p>
-                Explore frequency, severity, location and time patterns.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    if filtered_df.empty:
-        st.warning("No data available.")
-        st.stop()
-
-    priority = calculate_priority(filtered_df)
-
-    # Health Score
-
-    health_score, health_message = campus_health_score(
-        filtered_df
-    )
-
-    st.markdown(
-        '<div class="section-title">🩺 Campus Health Score</div>',
-        unsafe_allow_html=True
-    )
-
-    c1, c2 = st.columns([1, 2])
+    c1, c2, c3 = st.columns(3)
 
     with c1:
-
-        st.markdown(
-            f"""
-            <div class="health-card">
-                <div class="health-label">
-                    CAMPUS HEALTH
-                </div>
-                <div class="health-score">
-                    {health_score}/100
-                </div>
-                <div class="health-message">
-                    {health_message}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        feature_card("🧩", "AI Quiz Studio", "Practise a topic with AI-generated questions and answers.")
+        st.markdown("<div style='height:9px'></div>", unsafe_allow_html=True)
+        if st.button("Create a quiz →", key="dash_quiz", type="primary", use_container_width=True):
+            st.session_state.page = "AI Quiz"
+            st.rerun()
 
     with c2:
+        feature_card("📄", "PDF Notes Studio", "Convert your study PDF into organised, readable notes.")
+        st.markdown("<div style='height:9px'></div>", unsafe_allow_html=True)
+        if st.button("Make notes →", key="dash_notes", type="primary", use_container_width=True):
+            st.session_state.page = "PDF Notes"
+            st.rerun()
 
-        highest = priority.iloc[0]
+    with c3:
+        feature_card("💬", "Your AI Tutor", "Ask questions and understand difficult concepts step by step.")
+        st.markdown("<div style='height:9px'></div>", unsafe_allow_html=True)
+        if st.button("Ask a doubt →", key="dash_chat", type="primary", use_container_width=True):
+            st.session_state.page = "Study Chat"
+            st.rerun()
 
-        st.markdown(
-            f"""
-            <div class="top-issue">
-                <div class="top-issue-title">
-                    🏆 HIGHEST PRIORITY ISSUE
-                </div>
-                <div class="top-issue-name">
-                    {priority.index[0]}
-                </div>
-                <div class="top-issue-info">
-                    Score:
-                    <b>{highest["Priority Score"]:.2f}</b>
-                    &nbsp; • &nbsp;
-                    {highest["Priority"]}
-                    &nbsp; • &nbsp;
-                    {int(highest["Reports"])} reports
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
+    st.markdown('<div class="section-title">Recent activity</div>', unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="panel">
+      <span class="status-chip">● SESSION STATUS</span>
+      <div style="font-size:17px;font-weight:800;color:#17233c;margin-top:13px">{escape(st.session_state.last_activity)}</div>
+      <div style="color:#75819a;font-size:12px;margin-top:7px">Your activity is tracked while this app session is active.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+elif st.session_state.page == "AI Quiz":
+
+    show_heading("AI Quiz Studio", "Create a personalised practice quiz for your next study session.")
+
+    st.markdown("""
+    <div class="panel">
+      <div class="panel-title">Design your quiz</div>
+      <div class="panel-subtitle">Choose your topic, difficulty and preferred question format.</div>
+    """, unsafe_allow_html=True)
+
+    topic = st.text_input(
+        "Study topic",
+        placeholder="e.g. BJT, C Programming, Data Structures"
+    )
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        difficulty = st.selectbox("Difficulty", ["Easy", "Medium", "Hard", "Mixed"])
+        question_type = st.selectbox("Question format", ["MCQ", "Short Answer", "Mixed"])
+
+    with c2:
+        question_count = st.selectbox(
+            "Number of questions",
+            [5, 10, 20, 30, 40, 50, 75, 100],
+            index=2
         )
+        language = st.selectbox("Answer language", ["English", "Simple Hindi", "Hinglish"])
 
-    st.markdown(
-        '<div class="section-title">🚨 Smart Priority Analysis</div>',
-        unsafe_allow_html=True
+    extra_instructions = st.text_input(
+        "Extra instructions (optional)",
+        placeholder="e.g. Include important exam concepts and formulas"
     )
 
-    st.dataframe(
-        priority.round(2),
-        use_container_width=True
-    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    highest = priority.iloc[0]
+    if st.button("✦ Generate my quiz", type="primary", use_container_width=True):
 
-    st.success(
-        f"Highest priority problem: "
-        f"**{priority.index[0]}** — {highest['Priority']}"
-    )
+        if not topic.strip():
+            st.warning("Pehle study topic enter karo.")
+        else:
+            batch_size = 10
+            batches = (question_count + batch_size - 1) // batch_size
+            generated_parts = []
 
-    # Recommendation
+            progress = st.progress(0)
+            status = st.empty()
 
-    st.markdown(
-        '<div class="section-title">💡 Recommended Action</div>',
-        unsafe_allow_html=True
-    )
+            st.session_state.quiz_partial = False
 
-    recommendation = get_recommendation(
-        priority.index[0]
-    )
+            for batch_index in range(batches):
 
-    st.markdown(
-        f"""
-        <div class="recommendation">
-            <div class="recommendation-title">
-                Suggested Action
-            </div>
-            <div class="recommendation-text">
-                {recommendation}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+                start_num = batch_index * batch_size + 1
+                end_num = min((batch_index + 1) * batch_size, question_count)
+                current_count = end_num - start_num + 1
 
-    # Problem Location
+                status.info(f"Generating questions {start_num}–{end_num} of {question_count}...")
 
-    st.markdown(
-        '<div class="section-title">📍 Problem × Location</div>',
-        unsafe_allow_html=True
-    )
+                prompt = f"""
+You are an expert academic tutor.
 
-    problem_location = pd.crosstab(
-        filtered_df["Problem"],
-        filtered_df["Location"]
-    )
+Topic: {topic}
+Difficulty: {difficulty}
+Question format: {question_type}
+Language: {language}
+Question numbers: {start_num} to {end_num}
+Number of questions required: {current_count}
+Additional instructions: {extra_instructions or "None"}
 
-    st.dataframe(
-        problem_location,
-        use_container_width=True
-    )
+Instructions:
+1. Generate exactly {current_count} different questions.
+2. Number the questions from {start_num} to {end_num}.
+3. For MCQs, provide four options A, B, C and D.
+4. Mark the correct answer clearly.
+5. For short answers, provide a useful model answer.
+6. For mixed format, include both MCQs and short-answer questions.
+7. Add a short explanation where useful.
+8. Cover different concepts and avoid repeating questions.
+9. Keep all information accurate and relevant to the topic.
+10. Use readable headings and spacing.
+11. Do not add a long introduction.
+"""
 
-    # Location analysis
+                result = ask_ai(prompt, max_tokens=5000, temperature=0.4)
 
-    st.markdown(
-        '<div class="section-title">📍 Location Analysis</div>',
-        unsafe_allow_html=True
-    )
+                if not result:
+                    st.session_state.quiz_partial = bool(generated_parts)
+                    break
 
-    location_analysis = (
-        filtered_df
-        .groupby("Location")
-        .agg(
-            Reports=("Problem", "count"),
-            Average_Severity=("Severity", "mean")
-        )
-        .sort_values(
-            "Reports",
-            ascending=False
-        )
-    )
+                generated_parts.append(result)
+                progress.progress(len(generated_parts) / batches)
 
-    st.dataframe(
-        location_analysis.round(2),
-        use_container_width=True
-    )
+            status.empty()
+            progress.empty()
 
-    # Time
+            if generated_parts:
+                quiz_text = "\n\n".join(generated_parts)
 
-    st.markdown(
-        '<div class="section-title">🕐 Time Analysis</div>',
-        unsafe_allow_html=True
-    )
+                st.session_state.last_quiz = quiz_text
+                st.session_state.quiz_topic = topic
+                st.session_state.generated_quizzes += 1
 
-    time_analysis = (
-        filtered_df["Time"]
-        .value_counts()
-    )
+                st.session_state.quiz_history.insert(0, {
+                    "topic": topic,
+                    "questions_requested": question_count,
+                    "batches_generated": len(generated_parts),
+                    "date": datetime.now().strftime("%d %b %Y, %I:%M %p"),
+                    "difficulty": difficulty,
+                    "complete": not st.session_state.quiz_partial
+                })
 
-    st.bar_chart(time_analysis)
+                st.session_state.last_activity = f"Created a quiz on {topic}"
 
-    # Trend
+                if st.session_state.quiz_partial:
+                    st.warning(
+                        f"Quiz partially generated: {len(generated_parts)} of {batches} batches completed. Generated questions are available below."
+                    )
+                else:
+                    st.success(f"Quiz generated successfully! Requested questions: {question_count}")
 
-    st.markdown(
-        '<div class="section-title">📈 Reports Over Time</div>',
-        unsafe_allow_html=True
-    )
+            else:
+                st.error("Quiz generate nahi ho paya. API key, connection ya provider limits check karo.")
 
-    trend = filtered_df.dropna(
-        subset=["Date"]
-    ).copy()
+    if st.session_state.last_quiz:
+        st.markdown('<div class="section-title">Your generated quiz</div>', unsafe_allow_html=True)
+        st.caption(f"Topic: {st.session_state.quiz_topic}")
+        st.markdown(st.session_state.last_quiz)
 
-    if not trend.empty:
-
-        trend["Date"] = pd.to_datetime(
-            trend["Date"]
-        )
-
-        daily = (
-            trend.groupby("Date")
-            .size()
-            .rename("Reports")
-        )
-
-        st.line_chart(daily)
-
-    else:
-
-        st.info(
-            "Add valid dates to reports to see trends."
-        )
-
-    # Download
-
-    csv = filtered_df.to_csv(
-        index=False
-    ).encode("utf-8")
-
-    st.download_button(
-        "⬇️ Download Filtered Data",
-        csv,
-        "campus_reports.csv",
-        "text/csv"
-    )
-
-
-# ============================================================
-# REPORT PROBLEM
-# ============================================================
-
-elif page == "📝 Report Problem":
-
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-small">STUDENT REPORTING</div>
-            <h1>Something bothering you?</h1>
-            <p>
-                Report it. We'll turn campus reports into useful insights.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <div class="tip-box">
-            <b>🔒 Anonymous Reporting</b><br>
-            No personal information is required. Describe the issue clearly
-            so that it can be analyzed properly.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown("")
-
-    with st.form("report_form"):
-
-        st.markdown(
-            '<div class="section-title">Tell us about the problem</div>',
-            unsafe_allow_html=True
-        )
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-
-            problem = st.selectbox(
-                "What is the problem?",
-                [
-                    "Wi-Fi",
-                    "Canteen",
-                    "Lab PC",
-                    "Library",
-                    "Water",
-                    "Electricity",
-                    "Cleanliness",
-                    "Other"
-                ]
-            )
-
-        with col2:
-
-            location = st.selectbox(
-                "Where is it happening?",
-                [
-                    "Block A",
-                    "Block B",
-                    "Library",
-                    "Canteen",
-                    "Computer Lab",
-                    "Hostel",
-                    "Other"
-                ]
-            )
-
-        time = st.selectbox(
-            "When does it usually happen?",
-            [
-                "8 AM - 10 AM",
-                "10 AM - 12 PM",
-                "12 PM - 2 PM",
-                "2 PM - 4 PM",
-                "4 PM - 6 PM",
-                "6 PM - 8 PM"
-            ]
-        )
-
-        severity = st.slider(
-            "How serious is the problem?",
-            1,
-            5,
-            3
-        )
-
-        severity_text = {
-            1: "Very Low",
-            2: "Low",
-            3: "Moderate",
-            4: "High",
-            5: "Very High"
-        }
-
-        st.caption(
-            f"Selected severity: **{severity_text[severity]}**"
-        )
-
-        description = st.text_area(
-            "Tell us more",
-            placeholder=(
-                "Example: Wi-Fi becomes very slow during afternoon "
-                "classes in the computer lab."
-            )
-        )
-
-        report_date = date.today().strftime(
-            "%d-%m-%Y"
-        )
-
-        st.caption(
-            f"📅 Report date: {report_date}"
-        )
-
-        submitted = st.form_submit_button(
-            "Submit Report →",
+        st.download_button(
+            "⬇️ Download quiz as TXT",
+            data=st.session_state.last_quiz,
+            file_name="study_buddy_ai_quiz.txt",
+            mime="text/plain",
             use_container_width=True
         )
 
-        if submitted:
 
-            if description.strip() == "":
+elif st.session_state.page == "PDF Notes":
 
-                st.warning(
-                    "Please describe the problem before submitting."
+    show_heading("PDF Notes Studio", "Turn your study material into clear, structured revision notes.")
+
+    st.markdown("""
+    <div class="panel">
+      <div class="panel-title">Upload your study material</div>
+      <div class="panel-subtitle">Upload a text-based PDF to create your notes.</div>
+    """, unsafe_allow_html=True)
+
+    uploaded_file = st.file_uploader("Choose a PDF file", type=["pdf"])
+
+    if uploaded_file is not None:
+        pdf_text = extract_pdf_text(uploaded_file)
+
+        if pdf_text:
+            st.session_state.pdf_text = pdf_text
+            st.success(f"PDF loaded successfully · {len(pdf_text.split())} words detected.")
+
+            with st.expander("Preview extracted text"):
+                st.text(pdf_text[:3000])
+
+                if len(pdf_text) > 3000:
+                    st.caption("Preview shortened. The notes generator can use the extracted text within its processing limit.")
+
+        else:
+            st.warning("Readable text nahi mila. Scanned PDF ke liye OCR ki zaroorat ho sakti hai.")
+
+    note_style = st.selectbox(
+        "Notes style",
+        [
+            "Short Notes",
+            "Detailed Notes",
+            "Key Points",
+            "Summary Notes",
+            "Question–Answer Notes"
+        ]
+    )
+
+    detail_level = st.select_slider(
+        "Detail level",
+        options=["Concise", "Balanced", "Detailed"],
+        value="Balanced"
+    )
+
+    note_language = st.selectbox("Notes language", ["English", "Simple Hindi", "Hinglish"])
+
+    note_instructions = st.text_input(
+        "Special instructions (optional)",
+        placeholder="e.g. Include definitions, formulas and exam questions"
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if st.button("✦ Generate study notes", type="primary", use_container_width=True):
+
+        if not st.session_state.pdf_text:
+            st.warning("Pehle readable PDF upload karo.")
+        else:
+            source_text = st.session_state.pdf_text[:26000]
+
+            prompt = f"""
+You are an expert academic note-maker.
+
+Create study notes from the supplied source.
+
+Notes style: {note_style}
+Detail level: {detail_level}
+Language: {note_language}
+Special instructions: {note_instructions or "None"}
+
+Requirements:
+1. Cover the important concepts in the supplied source.
+2. Use clear headings and subheadings.
+3. Explain ideas in student-friendly language.
+4. Preserve important definitions, formulas, symbols and examples.
+5. Use bullet points and numbered steps where useful.
+6. Do not invent facts that are not supported by the source.
+7. For Question–Answer Notes, write questions followed by answers.
+8. For Key Points, use concise bullet points.
+9. Make the notes useful for revision and examinations.
+10. If the source is incomplete, mention the limitation.
+
+SOURCE TEXT:
+{source_text}
+"""
+
+            with st.spinner("Analysing your PDF and creating notes..."):
+                notes = ask_ai(prompt, max_tokens=6000, temperature=0.3)
+
+            if notes:
+                st.session_state.last_notes = notes
+                st.session_state.notes_created += 1
+
+                st.session_state.notes_history.insert(0, {
+                    "style": note_style,
+                    "date": datetime.now().strftime("%d %b %Y, %I:%M %p"),
+                    "words": len(notes.split())
+                })
+
+                st.session_state.last_activity = f"Created {note_style.lower()}"
+
+                if len(st.session_state.pdf_text) > 26000:
+                    st.info("Large PDF: the first 26,000 characters were sent for processing. Some later content may not be covered.")
+
+                st.success("Your notes are ready!")
+
+    if st.session_state.last_notes:
+        st.markdown('<div class="section-title">Your study notes</div>', unsafe_allow_html=True)
+        st.markdown(st.session_state.last_notes)
+
+        c1, c2 = st.columns(2)
+
+        with c1:
+            st.download_button(
+                "⬇️ Download TXT",
+                data=st.session_state.last_notes,
+                file_name="study_buddy_ai_notes.txt",
+                mime="text/plain",
+                use_container_width=True
+            )
+
+        with c2:
+            try:
+                pdf_data = make_pdf(st.session_state.last_notes)
+
+                st.download_button(
+                    "📄 Download PDF",
+                    data=pdf_data,
+                    file_name="study_buddy_ai_notes.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
                 )
-
-            else:
-
-                sheet.append_row(
-                    [
-                        problem,
-                        location,
-                        time,
-                        severity,
-                        description,
-                        report_date
-                    ]
-                )
-
-                st.success(
-                    "✓ Report received! "
-                    "Thanks for helping us understand campus problems better."
-                )
-
-                st.rerun()
+            except Exception as e:
+                st.error(f"PDF export error: {e}")
 
 
-# ============================================================
-# INSIGHTS
-# ============================================================
+elif st.session_state.page == "Study Chat":
 
-elif page == "💡 Insights":
+    show_heading("Study Chat", "Your personal AI tutor for doubts, concepts and explanations.")
 
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-small">DATA-DRIVEN INSIGHTS</div>
-            <h1>What needs attention?</h1>
-            <p>
-                Important observations generated from the current reports.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    if filtered_df.empty:
-        st.warning("No data available.")
-        st.stop()
-
-    priority = calculate_priority(filtered_df)
-
-    top_problem = priority.index[0]
-    top_row = priority.iloc[0]
-
-    top_location = (
-        filtered_df["Location"]
-        .value_counts()
-        .idxmax()
-    )
-
-    peak_time = (
-        filtered_df["Time"]
-        .value_counts()
-        .idxmax()
-    )
-
-    avg_severity = (
-        filtered_df["Severity"]
-        .mean()
-    )
-
-    health_score, health_message = campus_health_score(
-        filtered_df
-    )
-
-    # Main insight cards
-
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Priority Issue
-                </div>
-                <div class="insight-value">
-                    {top_problem}
-                </div>
-                <div class="insight-text">
-                    {top_row["Priority"]}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with col2:
-
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Most Affected Area
-                </div>
-                <div class="insight-value">
-                    {top_location}
-                </div>
-                <div class="insight-text">
-                    Highest number of reports
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with col3:
-
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Peak Reporting Time
-                </div>
-                <div class="insight-value">
-                    {peak_time}
-                </div>
-                <div class="insight-text">
-                    Most reports received
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    with col4:
-
-        st.markdown(
-            f"""
-            <div class="insight-card">
-                <div class="insight-label">
-                    Campus Health
-                </div>
-                <div class="insight-value">
-                    {health_score}/100
-                </div>
-                <div class="insight-text">
-                    {health_message}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # Main insight
-
-    st.markdown(
-        '<div class="section-title">🧠 Key Finding</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        f"""
-        <div class="insight-card">
-            <div class="insight-label">
-                CURRENT PRIORITY
-            </div>
-            <div class="insight-value">
-                {top_problem}
-            </div>
-            <div class="insight-text" style="font-size:15px;">
-                This issue currently has the highest analytical priority
-                based on its reporting frequency and average severity.
-                Its calculated priority score is
-                <b>{top_row["Priority Score"]:.2f}</b>.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Recommendation
-
-    st.markdown(
-        '<div class="section-title">💡 Smart Recommendation</div>',
-        unsafe_allow_html=True
-    )
-
-    recommendation = get_recommendation(
-        top_problem
-    )
-
-    st.markdown(
-        f"""
-        <div class="recommendation">
-            <div class="recommendation-title">
-                Recommended Action for {top_problem}
-            </div>
-            <div class="recommendation-text">
-                {recommendation}
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Additional recommendation
-
-    st.markdown(
-        f"""
-        <div class="recommendation">
-            <div class="recommendation-title">
-                📍 Focus on {top_location}
-            </div>
-            <div class="recommendation-text">
-                This location currently has the highest number of
-                reported problems. It may be useful to investigate
-                recurring issues in this area first.
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    # Trend insight
-
-    st.markdown(
-        '<div class="section-title">📈 Trend Insight</div>',
-        unsafe_allow_html=True
-    )
-
-    st.info(
-        trend_message(filtered_df)
-    )
-
-    # Method note
-
-    st.markdown(
-        '<div class="section-title">ℹ️ About this analysis</div>',
-        unsafe_allow_html=True
-    )
-
-    st.markdown(
-        """
-        <div class="insight-card">
-            Priority is calculated using two factors:
-            <br><br>
-            <b>Frequency</b> — how often the problem is reported.
-            <br>
-            <b>Severity</b> — how serious the reported problem is.
-            <br><br>
-            The Campus Health Score is an analytical indicator
-            based on reported issue pressure and severity.
-            <br><br>
-            These calculations are <b>not an ML prediction model</b>.
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-
-# ---------------- FOOTER ----------------
-
-st.markdown(
-    """
-    <div class="footer">
-        Campus Intelligence • Campus Problem Analysis<br>
-        Student Project • Data-driven campus improvement
+    st.markdown("""
+    <div class="panel">
+      <div class="panel-title">💬 Meet your AI tutor</div>
+      <div class="panel-subtitle">Ask a question and get a clear, student-friendly explanation.</div>
+      <span class="status-chip">✦ POWERED BY GROQ AI</span>
     </div>
-    """,
-    unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
+
+    if st.button("＋ Start new chat", key="new_chat"):
+        st.session_state.chat_messages = []
+        st.session_state.last_activity = "Started a new chat"
+        st.rerun()
+
+    for message in st.session_state.chat_messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    user_prompt = st.chat_input("Ask your study question...")
+
+    if user_prompt:
+        st.session_state.chat_messages.append({
+            "role": "user",
+            "content": user_prompt
+        })
+
+        with st.chat_message("user"):
+            st.markdown(user_prompt)
+
+        messages = [{
+            "role": "system",
+            "content": (
+                "You are Study Buddy AI, a helpful academic tutor. "
+                "Explain concepts in simple, clear language. "
+                "Use examples, headings, formulas and steps when useful. "
+                "When asked for programming, provide complete working code. "
+                "Be accurate and admit uncertainty when necessary."
+            )
+        }]
+
+        messages.extend(st.session_state.chat_messages[-11:])
+
+        client = get_client()
+        answer = None
+
+        if client:
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    try:
+                        response = client.chat.completions.create(
+                            model=MODEL,
+                            messages=messages,
+                            max_tokens=3000,
+                            temperature=0.4
+                        )
+                        answer = response.choices[0].message.content
+
+                    except Exception as e:
+                        st.error(f"Chat response error: {e}")
+
+                if answer:
+                    st.markdown(answer)
+
+        if answer:
+            st.session_state.chat_messages.append({
+                "role": "assistant",
+                "content": answer
+            })
+            st.session_state.last_activity = "Used Study Chat"
+            st.rerun()
+        else:
+            if st.session_state.chat_messages and st.session_state.chat_messages[-1]["role"] == "user":
+                st.session_state.chat_messages.pop()
+            st.warning("Message send nahi ho paya. Dobara try karo.")
+
+
+elif st.session_state.page == "Performance":
+
+    show_heading("Your Performance", "Review the learning activities completed in this session.")
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        metric_card("🧠", st.session_state.generated_quizzes, "Quizzes created")
+
+    with c2:
+        metric_card("📚", st.session_state.notes_created, "Notes created")
+
+    with c3:
+        metric_card("💬", len(st.session_state.chat_messages), "Chat messages")
+
+    st.markdown('<div class="section-title">Quiz history</div>', unsafe_allow_html=True)
+
+    if st.session_state.quiz_history:
+        for item in st.session_state.quiz_history:
+            status_text = "Completed" if item["complete"] else "Partial"
+
+            st.markdown(f"""
+            <div class="panel">
+              <div style="font-size:16px;font-weight:800;color:#17233c">{escape(item['topic'])}</div>
+              <div style="color:#75819a;font-size:12px;margin-top:8px">
+                {item['questions_requested']} questions requested ·
+                {escape(item['difficulty'])} ·
+                {item['batches_generated']} batches ·
+                {escape(item['date'])}
+              </div>
+              <div style="margin-top:12px"><span class="status-chip">{status_text}</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Quiz history abhi empty hai. AI Quiz se apna pehla quiz banao.")
+
+    st.markdown('<div class="section-title">Notes history</div>', unsafe_allow_html=True)
+
+    if st.session_state.notes_history:
+        for item in st.session_state.notes_history:
+            st.markdown(f"""
+            <div class="panel">
+              <div style="font-size:16px;font-weight:800;color:#17233c">{escape(item['style'])}</div>
+              <div style="color:#75819a;font-size:12px;margin-top:8px">
+                {item['words']} words · {escape(item['date'])}
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Notes history abhi empty hai. PDF Notes se notes generate karo.")
+
+    st.caption("Performance data is stored in the active session and may reset when the session restarts.")
+
+
+elif st.session_state.page == "Settings":
+
+    show_heading("Settings", "Your workspace information and data management.")
+
+    st.markdown("""
+    <div class="panel">
+      <div class="panel-title">🎨 Your workspace</div>
+      <div class="panel-subtitle">A clean green-and-white design made for focused learning.</div>
+      <span class="status-chip">STUDY BUDDY AI</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="panel">
+      <div class="panel-title">🤖 AI configuration</div>
+      <div class="panel-subtitle">The app uses Groq API for quiz generation, notes and chat.</div>
+      <div style="font-weight:700;color:#17233c">Model</div>
+      <code>openai/gpt-oss-20b</code>
+      <div style="height:12px"></div>
+      <div style="font-weight:700;color:#17233c">API key</div>
+      <div style="color:#75819a;font-size:13px">Stored in Streamlit Secrets and not displayed here.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Manage your data</div>', unsafe_allow_html=True)
+    st.warning("Clearing history removes the selected session data. This action cannot be undone.")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        if st.button("🗑️ Clear quiz and notes history", use_container_width=True):
+            st.session_state.quiz_history = []
+            st.session_state.notes_history = []
+            st.session_state.generated_quizzes = 0
+            st.session_state.notes_created = 0
+            st.session_state.last_quiz = ""
+            st.session_state.last_notes = ""
+            st.session_state.quiz_partial = False
+            st.session_state.last_activity = "Quiz and notes history cleared"
+            st.rerun()
+
+    with c2:
+        if st.button("🧹 Clear chat history", use_container_width=True):
+            st.session_state.chat_messages = []
+            st.session_state.last_activity = "Chat history cleared"
+            st.rerun()
+
+    st.markdown('<div class="section-title">About your app</div>', unsafe_allow_html=True)
+
+    st.markdown("""
+    <div class="panel">
+      <div style="font-size:22px;font-weight:800;color:#104c46">Study Buddy AI 🎓</div>
+      <div style="color:#75819a;font-size:13px;line-height:1.8;margin-top:9px">
+        Your personal AI learning workspace for quiz generation,
+        PDF notes, study chat and session-based performance tracking.
+      </div>
+      <div style="margin-top:13px;font-size:12px;font-weight:700;color:#087f5b">
+        LEARN SMARTER · GROW FASTER
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+st.markdown("""
+<div class="footer">
+  STUDY BUDDY AI &nbsp; · &nbsp; LEARN ✦ GROW ✦ ACHIEVE
+</div>
+""", unsafe_allow_html=True)
